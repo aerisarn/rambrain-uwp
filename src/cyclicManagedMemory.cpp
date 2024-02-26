@@ -334,7 +334,7 @@ void cyclicManagedMemory::decay ( global_bytesize bytes )
         return;
     }
     cyclicAtime *cur2 = preemptiveStart;
-    managedMemoryChunk *chunklist[chunks];
+    managedMemoryChunk** chunklist = (managedMemoryChunk**)_alloca(sizeof(managedMemoryChunk*) * chunks);//[chunks];
     managedMemoryChunk **cursw = chunklist;
     bytesselected = 0;
     while ( cur2 != cur && bytesselected < bytes ) {
@@ -497,7 +497,7 @@ bool cyclicManagedMemory::swapIn ( managedMemoryChunk &chunk )
             cur = cur->prev;
         } while ( cur != oldBorder );
 
-        managedMemoryChunk *chunks[numberSelected];
+        managedMemoryChunk** chunks = (managedMemoryChunk**)_alloca(sizeof(managedMemoryChunk*) * numberSelected);//[numberSelected];
         unsigned int n = 0;
         global_bytesize selectedReadinVol2 = 0;
         preemtivelySelected = 0;

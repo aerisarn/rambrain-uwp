@@ -19,19 +19,25 @@
 
 #include "managedFileSwap.h"
 #include "common.h"
+#ifndef _WIN32
 #include <unistd.h>
+#endif // !_WIN32
 #include <string.h>
+#ifndef _WIN32
 #include <sys/signal.h>
+#endif
 #include <sys/stat.h>
 #include "exceptions.h"
 #include "managedMemory.h"
-#include <libaio.h>
+#include <boost/asio/io_service.hpp>
 #include <signal.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#ifndef _WIN32
 #include <sys/ioctl.h>
 #include <mm_malloc.h>
 #include <sys/statvfs.h>
+#endif
 #include <iostream>
 #include <limits>
 #ifndef OpenMP_NOT_FOUND
@@ -82,7 +88,7 @@ managedFileSwap::managedFileSwap ( global_bytesize size, const char *filemask, g
     }
 
     instance = this;
-#ifdef SWAPSTATS
+#if defined SWAPSTATS && !defined _WIN32
     signal ( SIGUSR2, managedFileSwap::sigStat );
 #endif
 

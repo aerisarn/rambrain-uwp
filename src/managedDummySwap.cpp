@@ -21,7 +21,9 @@
 #include <memory.h>
 #include "managedDummySwap.h"
 #include "managedMemory.h"
+#ifndef _WIN32
 #include <mm_malloc.h>
+#endif
 
 namespace rambrain
 {

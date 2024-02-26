@@ -1,4 +1,24 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required(VERSION 3.21.1)
+
+option(ENABLE_VCPKG "Enable the vcpkg package manager" ON)
+
+if (ENABLE_VCPKG)
+	if(UNIX AND NOT APPLE)
+		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports_linux")
+	elseif(APPLE)
+		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports_mac")
+	else()
+		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports")
+	endif()
+	set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../Cemu/dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake"
+		CACHE STRING "Vcpkg toolchain file")
+	# Set this so that all the various find_package() calls don't need an explicit
+	# CONFIG option
+	set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
+	if (WIN32)
+		set(VCPKG_TARGET_TRIPLET "x64-uwp-static-md" CACHE STRING "")
+	endif()
+endif()
 
 project (rambrain)
 
@@ -11,7 +31,7 @@ option (CAN_IGNORE_WARNINGS "Enable warning ignore macros to be used to suppress
 option (OPTIMISE_COMPILATION "Enable O3 optimisation instead O0" ON)
 option (USE_XPRESSIVE "Use boost xpressive for regular expressions" OFF)
 
-
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(OpenMP)
 if(${OPENMP_FOUND})
@@ -66,10 +86,12 @@ if(USE_XPRESSIVE)
     endif()
 endif()
 
-find_package (Threads REQUIRED)
-if(NOT CMAKE_USE_PTHREADS_INIT)
-    error ("Could NOT find pthreads.")
-endif()
+find_package(PThreads4W REQUIRED)
+
+#find_package (Threads REQUIRED)
+#if(NOT CMAKE_USE_PTHREADS_INIT)
+#    error ("Could NOT find pthreads.")
+#endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(-D__STRICT_ANSI__)
@@ -80,11 +102,16 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
-find_package(AIO REQUIRED)
-include_directories(${AIO_INCLUDE_DIR})
+#find_package(AIO REQUIRED)
+#include_directories(${AIO_INCLUDE_DIR})
+
+find_package(Boost COMPONENTS system REQUIRED)
 
 set(CMAKE_BUILD_TYPE DEBUG)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -g ${OPTIMISATION}")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -g ${OPTIMISATION}")
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Compiling with ${CMAKE_CXX_FLAGS}")
 

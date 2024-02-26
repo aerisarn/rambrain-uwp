@@ -19,6 +19,8 @@
 
 #include "timer.h"
 
+#if defined SWAPSTATS && !defined _WIN32 
+
 namespace rambrain
 {
 
@@ -74,4 +76,6 @@ void Timer::initialiseTimer()
 }
 
 }
+
+#endif
 

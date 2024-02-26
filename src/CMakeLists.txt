@@ -11,8 +11,13 @@ if(LOGSTATS)
     target_link_libraries(rambrain -lrt)
     target_link_libraries(rambrain_static -lrt)
 endif()
-target_link_libraries(rambrain ${AIO_LIBRARIES})
-target_link_libraries(rambrain_static ${AIO_LIBRARIES})
+target_link_libraries(rambrain PRIVATE PThreads4W::PThreads4W)
+target_link_libraries(rambrain_static PRIVATE PThreads4W::PThreads4W)
+target_link_libraries(rambrain PRIVATE Boost::system)
+target_link_libraries(rambrain_static PRIVATE Boost::system)
+
+#target_link_libraries(rambrain ${AIO_LIBRARIES})
+#target_link_libraries(rambrain_static ${AIO_LIBRARIES})
 
 
 get_directory_property(defs COMPILE_DEFINITIONS)

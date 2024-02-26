@@ -23,7 +23,11 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#ifndef _WIN32
 #include <sys/signal.h>
+#endif
+
+#if defined SWAPSTATS && !defined _WIN32 
 
 namespace rambrain
 {
@@ -76,6 +80,7 @@ private:
 };
 
 }
+#endif
 
 #endif // TIMER_H
 

@@ -22,14 +22,20 @@
 
 #include "managedSwap.h"
 #include <stdio.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <map>
 #include <queue>
+#ifndef _WIN32
 #include <libaio.h>
+#endif
 #include <signal.h>
 #include <unordered_map>
 #include <sys/types.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 //Test classes
 #ifdef BUILD_TESTS

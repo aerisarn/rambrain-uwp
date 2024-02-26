@@ -21,12 +21,17 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#ifndef _WIN32
 #include <pwd.h>
 #include <unistd.h>
+#endif
 #include <cstdlib>
+#ifndef _WIN32
 #include <sys/statvfs.h>
+#endif
 #include <cstring>
 #include <algorithm>
+#include <functional>
 
 namespace rambrain
 {
@@ -139,6 +144,7 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
     char exe[1024];
     int ret;
 
+#ifndef _WIN32
     ret = readlink ( "/proc/self/exe", exe, sizeof ( exe ) - 1 );
     if ( ret != -1 ) {
         exe[ret] = '\0';
@@ -147,6 +153,7 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
 
         swapMemory.value = stats.f_bfree * stats.f_bsize / 2;
     }
+#endif
 }
 
 configReader::configReader()
@@ -297,7 +304,12 @@ string configReader::getApplicationName() const
     char exe[1024];
     int ret;
 
+#ifndef _WIN32
     ret = readlink ( "/proc/self/exe", exe, sizeof ( exe ) - 1 );
+#else
+    //TODO
+    ret = -1;
+#endif
     if ( ret == -1 ) {
         return "";
     }
@@ -311,13 +323,20 @@ string configReader::getApplicationName() const
 
 string configReader::getHomeDir() const
 {
-    struct passwd *pw = getpwuid ( getuid() );
+#ifndef _WIN32
+    struct passwd* pw = getpwuid(getuid());
     return pw->pw_dir;
+#else
+    //TODO WINRT
+    return ".";
+#endif // !_WIN32
 }
 
 void configReader::stripLeadingTrailingWhitespace ( string &str ) const
 {
-    str.erase ( str.begin(), std::find_if ( str.begin(), str.end(), std::not1 ( std::ptr_fun<int, int> ( std::isspace ) ) ) );
-    str.erase ( std::find_if ( str.rbegin(), str.rend(), std::not1 ( std::ptr_fun<int, int> ( std::isspace ) ) ).base(), str.end() );
+    const char* WhiteSpace = " \t\v\r\n";
+    std::size_t start = str.find_first_not_of(WhiteSpace);
+    std::size_t end = str.find_last_not_of(WhiteSpace);
+    start != end ? str = str.substr(start, end - start + 1):str;
 }
 }

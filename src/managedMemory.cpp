@@ -21,13 +21,19 @@
 #include "common.h"
 #include "exceptions.h"
 #include "dummyManagedMemory.h"
+#ifndef _WIN32
 #include <sys/signal.h>
+#endif
 #include "rambrainconfig.h"
 #include "rambrain_atomics.h"
+#ifndef _WIN32
 #include "git_info.h"
+#endif
 #include "managedPtr.h"
 #include <time.h>
+#ifndef _WIN32
 #include <mm_malloc.h>
+#endif
 
 namespace rambrain
 {
@@ -76,7 +82,7 @@ managedMemory::managedMemory ( managedSwap *swap, global_bytesize size  )
     if ( !swap ) {
         throw incompleteSetupException ( "no swap manager defined" );
     }
-#ifdef SWAPSTATS
+#if !defined SWAPSTATS && !defined _WIN32
     signal ( SIGUSR1, sigswapstats );
 
 #ifdef LOGSTATS
@@ -732,10 +738,11 @@ void managedMemory::versionInfo()
     const char *parentalcontrol = "without parental_control";
 #endif
 
+#ifndef _WIN32
     infomsgf ( "compiled from %s\n\ton %s at %s\n\
                 \t%s , %s , %s\n\
     \n \t git diff\n%s\n", gitCommit, __DATE__, __TIME__, swapstats, logstats, parentalcontrol, gitDiff );
-
+#endif
 
 }
 

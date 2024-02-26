@@ -1,0 +1,8 @@
+{
+  "name": "cemu",
+  "version-string": "1.0",
+  "dependencies": [
+    "boost-asio",
+	"pthreads"
+  ]
+}

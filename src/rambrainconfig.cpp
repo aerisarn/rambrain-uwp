@@ -25,7 +25,7 @@
 #include "cyclicManagedMemory.h"
 #include "dummyManagedMemory.h"
 #include "exceptions.h"
-#include "git_info.h"
+//#include "git_info.h"
 
 namespace rambrain
 {
@@ -34,7 +34,9 @@ namespace rambrainglobals
 
 rambrainConfig::rambrainConfig ()
 {
-    infomsgf ( "Greetings from Rambrain!\n\tRambrain is still in an early stage of development. Please report any strange behaviour!\n\tRambrain was compiled from git %s\tWhen reporting problems, please include this commit number.", gitCommit );
+#ifndef _WIN32
+    infomsgf("Greetings from Rambrain!\n\tRambrain is still in an early stage of development. Please report any strange behaviour!\n\tRambrain was compiled from git %s\tWhen reporting problems, please include this commit number.", gitCommit);
+#endif // !_WIN32
     init();
 }
 
