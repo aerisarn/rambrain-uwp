@@ -43,8 +43,197 @@
 #ifndef OpenMP_NOT_FOUND
 #include <omp.h>
 #endif
+
+#ifdef _WIN32
+#include <fcntl.h>
+#include <sys/stat.h>
+//#include <io.h>
+#include <stdio.h>
+
+//O_DIRECT TODO
+//https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering
+
+
+//used for multiple context, we don't need this
+static inline int io_setup(int maxevents, rambrain::io_context_t* ctxp) {
+    *ctxp = 1;
+    return 0;
+}
+
+//unused in single process context
+static inline int io_destroy(rambrain::io_context_t ctx) {
+    return 0;
+}
+
+
+#define IO_CMD_PREAD 0
+#define IO_CMD_PWRITE 1
+
+//just prepare the context
+inline void io_prep_pread(struct rambrain::iocb* iocb, file_descriptor_t fd, void* buf, size_t count, long long offset)
+{
+    memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
+    iocb->fd = fd;
+    iocb->buf = buf;
+    iocb->count = count;
+    iocb->offset = offset;
+    iocb->operation = IO_CMD_PREAD;
+}
+
+VOID WINAPI CompletedWriteRoutine(DWORD, DWORD, LPOVERLAPPED);
+
+VOID WINAPI CompletedReadRoutine(DWORD, DWORD, LPOVERLAPPED);
+
+//just prepare the context
+inline void io_prep_pwrite(struct rambrain::iocb* iocb, file_descriptor_t fd, void* buf, size_t count, long long offset)
+{
+    memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
+    iocb->fd = fd;
+    iocb->buf = buf;
+    iocb->count = count;
+    iocb->offset = offset;
+    iocb->operation = IO_CMD_PWRITE;
+}
+
+int io_submit(rambrain::io_context_t ctx, long nr, struct rambrain::iocb* iocbs[])
+{
+    DWORD Result = ERROR_SUCCESS;
+    for (long i = 0; i < nr; ++i)
+    {
+        struct rambrain::iocb* request = iocbs[i];
+        if (request->operation == IO_CMD_PREAD)
+        {
+            Result = ReadFileEx(request->fd, request->buf, request->count, (LPOVERLAPPED)request, CompletedReadRoutine);
+            if (Result != ERROR_SUCCESS)
+            {
+
+            }
+        }
+        else if (request->operation == IO_CMD_PWRITE)
+        {
+            Result = WriteFileEx(request->fd, request->buf, request->count, (LPOVERLAPPED)request, CompletedWriteRoutine);
+            if (Result != ERROR_SUCCESS)
+            {
+
+            }
+        }
+    }
+    return 1;
+}
+
+//Attempts to read up to nr events from the completion queue for the aio_context specified by ctx.
+int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambrain::io_event* events, struct timespec* timeout)
+{
+    long completed = 0;
+    struct rambrain::io_event* event = NULL;
+    for (int i = 0; i < nr; ++i)
+    {
+        if (completed == min_nr)
+            break;
+        event = &events[i];
+        //GetOverlappedResultEx()
+    }
+    return 0;
+}
+
+//Implementation
+
+VOID WINAPI CompletedWriteRoutine(DWORD, DWORD, LPOVERLAPPED)
+{
+    //NTD
+}
+
+VOID WINAPI CompletedReadRoutine(DWORD, DWORD, LPOVERLAPPED)
+{
+    //NTD
+}
+
+//Utilities
+
+#define _SC_PAGE_SIZE 0
+
+unsigned int sysconf(int type)
+{
+    return 0;
+}
+
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
+
+    ft.QuadPart = -(10 * usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
+
+#define O_DIRECT 100
+#define S_IRUSR  200
+#define S_IWUSR  300
+
+HANDLE open(const char* szFileName, int mode, int permissions)
+{
+    HANDLE hFile = CreateFile(szFileName,		// Name of the file
+        (GENERIC_READ | GENERIC_WRITE),	// Open for writing
+        0,								// Do not share
+        NULL,							// Default security
+        CREATE_ALWAYS,					// Overwrite existing
+        // The file must be opened for asynchronous I/O by using the 
+        // FILE_FLAG_OVERLAPPED flag.
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING,
+        NULL);
+    return hFile;
+}
+
+BOOL close(HANDLE hndl)
+{
+    return CloseHandle(hndl);
+}
+
+int ftruncate(HANDLE hndl, long long int size_to_reserve)
+{
+
+    if (size_to_reserve <= 0)
+        return 0;
+
+    LARGE_INTEGER minus_one = { 0 }, zero = { 0 };
+    minus_one.QuadPart = -1;
+
+    // Get the current file position
+    LARGE_INTEGER old_pos = { 0 };
+    if (!SetFilePointerEx(hndl, zero, &old_pos, FILE_CURRENT))
+        return -1;
+
+    // Movie file position to the new end. These calls do NOT result in the actual allocation of
+    // new blocks, but they must succeed.
+    LARGE_INTEGER new_pos = { 0 };
+    new_pos.QuadPart = size_to_reserve;
+    if (!SetFilePointerEx(hndl, new_pos, NULL, FILE_END))
+        return -1;
+    if (!SetEndOfFile(hndl))
+        return -1;
+
+    if (!SetFilePointerEx(hndl, minus_one, NULL, FILE_END))
+        return -1;
+    char  initializer_buf[1] = { 1 };
+    DWORD written = 0;
+    if (!WriteFile(hndl, initializer_buf, 1, &written, NULL))
+        return -1;
+
+    return 0;
+}
+
+#define FILE_INVALID 0
+#else
+#define FILE_INVALID -1
+#endif
+
 namespace rambrain
 {
+
 
 //#define DBG_AIO
 managedFileSwap::managedFileSwap ( global_bytesize size, const char *filemask, global_bytesize oneFile, bool enableDMA ) : managedSwap ( size ), pageSize ( sysconf ( _SC_PAGE_SIZE ) )
@@ -179,8 +368,8 @@ bool managedFileSwap::openSwapFileRange ( unsigned int start, unsigned int stop 
     for ( unsigned int n = start; n < stop; ++n ) {
         char fname[1024];
         snprintf ( fname, 1024, filemask, getpid(), n );
-        swapFiles[n].fileno = open ( fname, O_RDWR | O_TRUNC | O_CREAT | ( enableDMA ? O_DIRECT : 0 << 0 ), S_IRUSR | S_IWUSR );
-        if ( swapFiles[n].fileno == -1 ) {
+        swapFiles[n].fileno = open(fname, O_RDWR | O_TRUNC | O_CREAT| ( enableDMA ? O_DIRECT : 0 << 0 ), S_IRUSR | S_IWUSR );
+        if ( swapFiles[n].fileno == FILE_INVALID) {
             if ( errno == EINVAL && n == 0 && enableDMA ) { //Probably happens because we have O_DIRECT set even though file system does not support this...
                 warnmsg ( "Could not open first swapfile. Probably DMA is not supported on underlying filesystem. Trying again without dma" )
                 setDMA ( false );
@@ -294,6 +483,9 @@ bool managedFileSwap::extendSwap ( global_bytesize size )
 
 global_bytesize managedFileSwap::getFreeDiskSpace()
 {
+#ifdef _WIN32
+    return 0;
+#else
     string directory ( filemask );
     std::size_t found  = directory.find_last_of ( "/" );
     if ( found == directory.npos ) {
@@ -305,6 +497,7 @@ global_bytesize managedFileSwap::getFreeDiskSpace()
     statvfs ( directory.c_str(), &stats );
     global_bytesize bytesfree =  stats.f_bfree * stats.f_bsize;
     return bytesfree;
+#endif
 }
 
 
@@ -650,7 +843,7 @@ void managedFileSwap::scheduleCopy ( pageFileLocation &ref, void *ramBuf, int *t
 #endif
 
     global_bytesize length = ref.size + ( ref.size % memoryAlignment == 0 ? 0 : memoryAlignment - ref.size % memoryAlignment );
-    int fd = swapFiles[ref.file].fileno;
+    file_descriptor_t fd = swapFiles[ref.file].fileno;
     reverse ? io_prep_pread ( aio, fd, ramBuf, length, ref.offset ) : io_prep_pwrite ( aio, fd, ramBuf, length, ref.offset );
 
     pendingAios[aio] = &ref;
@@ -858,10 +1051,10 @@ void managedFileSwap::asyncIoArrived ( rambrain::pageFileLocation *ref, io_event
         --totalSwapActionsQueued; //Do this at the very last line, as completeTransactionOn() has to be done beforehands.
 
     } else {
-
+#ifndef _WIN32
         errmsgf ( "We have trouble in chunk %lu, %d ; aio_size %lu, size %lu, transfer size %lu", ref->glob_off_next.chunk->id, err, event->res, ref->size, event->obj->u.c.nbytes );
         errmsgf ( "file-align %lu, err %d, sizeWritten = %lu", ref->offset % memoryAlignment, err, event->res );
-
+#endif
         throw ( memoryException ( "unknown aio error" ) );
     }
 }

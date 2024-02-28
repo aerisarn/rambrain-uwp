@@ -22,6 +22,10 @@
 
 //We want to use a clever logic here to be more portable...
 
+#ifdef _WIN32
+#include "sync_win32.h"
+#endif
+
 //GCC atomics
 #define rambrain_atomic_fetch_add(a,b) __sync_fetch_and_add(a,b)
 #define rambrain_atomic_fetch_sub(a,b) __sync_fetch_and_sub(a,b)

@@ -22,6 +22,10 @@
 
 #include "managedMemory.h"
 
+#ifdef _WIN32
+#undef DELETE
+#endif
+
 namespace rambrain
 {
 ///@brief structure created by scheduler to track access times of memoryChunks

@@ -24,6 +24,8 @@
 #include <stdio.h>
 #ifndef _WIN32
 #include <unistd.h>
+#else
+#include <stdint.h>
 #endif
 #include <map>
 #include <queue>
@@ -35,6 +37,12 @@
 #include <sys/types.h>
 #ifndef _WIN32
 #include <unistd.h>
+typedef int file_descriptor_t
+#else
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+typedef HANDLE file_descriptor_t;
 #endif
 
 //Test classes
@@ -61,9 +69,34 @@ class pageFileLocation;
 
 ///@brief structure to handle swap files
 struct swapFileDesc {
-    int fileno;
+
+    file_descriptor_t fileno;
     global_bytesize currentSize;
 };
+
+#ifdef _WIN32
+
+struct iocb {
+    OVERLAPPED oOverlap; //must be first
+    file_descriptor_t fd;
+    void* buf; 
+    size_t count; 
+    long long offset;
+    int operation;
+    int aio_reqprio;
+};
+
+typedef unsigned long io_context_t;
+
+
+struct io_event {
+    void* data;
+    struct iocb* obj;
+    long long res;
+    long long res2;
+};
+
+#endif
 
 ///@brief datastructure for handling asynchronous events
 struct aiotracker {
