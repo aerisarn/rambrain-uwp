@@ -45,7 +45,7 @@ TEST ( managedDummySwap, Unit_ManualSwapping )
     managedMemoryChunk *chunk = new managedMemoryChunk ( 1 );
 #endif
     chunk->status = MEM_ALLOCATED;
-    chunk->locPtr =  malloc ( dblsize );
+    chunk->locPtr =  _mm_malloc ( dblsize, 4096 );
     chunk->size = dblsize;
 
     swap.swapOut ( chunk );
@@ -58,7 +58,7 @@ TEST ( managedDummySwap, Unit_ManualSwapping )
     ASSERT_EQ ( swapmem, swap.getSwapSize() );
     ASSERT_EQ ( 0u, swap.getUsedSwap() );
 
-    free ( chunk->locPtr );
+    _mm_free ( chunk->locPtr );
     delete chunk;
 }
 
@@ -85,7 +85,7 @@ TEST ( managedDummySwap, Unit_ManualMultiSwapping )
         chunks[i] = new managedMemoryChunk ( i + 1 );
 #endif
         chunks[i]->status = MEM_ALLOCATED;
-        chunks[i]->locPtr =  malloc ( dblsize );
+        chunks[i]->locPtr =  _mm_malloc ( dblsize, 4096 );
         chunks[i]->size = dblsize;
     }
 
@@ -101,9 +101,9 @@ TEST ( managedDummySwap, Unit_ManualMultiSwapping )
 
     for ( int i = 0; i < 2; ++i ) {
         if ( chunks[i]->status == MEM_SWAPPED ) {
-            free ( chunks[i]->swapBuf );
+            _mm_free ( chunks[i]->swapBuf );
         } else {
-            free ( chunks[i]->locPtr );
+            _mm_free ( chunks[i]->locPtr );
         }
 
         delete chunks[i];
@@ -129,7 +129,7 @@ TEST ( managedDummySwap, Unit_ManualSwappingDelete )
     managedMemoryChunk *chunk = new managedMemoryChunk ( 1 );
 #endif
     chunk->status = MEM_ALLOCATED;
-    chunk->locPtr =  malloc ( dblsize );
+    chunk->locPtr =  _mm_malloc ( dblsize, 4096 );
     chunk->size = dblsize;
 
     swap.swapOut ( chunk );

@@ -19,6 +19,25 @@
 
 #include "tester.h"
 #include "managedMemory.h"
+
+#ifdef _WIN32
+double drand48(void) {
+    return rand() / (RAND_MAX + 1.0);
+}
+
+long int lrand48(void) {
+    return rand();
+}
+
+long int mrand48(void) {
+    return rand() > RAND_MAX / 2 ? rand() : -rand();
+}
+
+void srand48(long int seedval) {
+    srand(seedval);
+}
+#endif
+
 tester::tester ( const char *name ) : name ( name )
 {
     startNewRNGCycle();
@@ -145,8 +164,10 @@ void tester::writeToFile()
     }
 
     const int timesCount = timeMeasures.front().size() - 1;
-    int64_t durations[timesCount][cyclesCount], starts[timesCount][cyclesCount], ends[timesCount][cyclesCount];
-    double percentages[timesCount][cyclesCount];
+    int64_t** durations = (int64_t**)malloc(sizeof(int64_t) * timesCount * cyclesCount);
+    int64_t** starts = (int64_t**)malloc(sizeof(int64_t) * timesCount * cyclesCount);
+    int64_t** ends = (int64_t**)malloc(sizeof(int64_t) * timesCount * cyclesCount);
+    double** percentages = (double**)malloc(sizeof(double) * timesCount * cyclesCount);
 
     int cycle = 0, time;
     for ( auto repIt = timeMeasures.begin(); repIt != timeMeasures.end(); ++repIt, ++cycle ) {
@@ -181,6 +202,11 @@ void tester::writeToFile()
     }
 
     out << std::flush;
+
+    free(durations);
+    free(starts);
+    free(ends);
+    free(percentages);
 }
 
 std::vector<int64_t> tester::getDurationsForCurrentCycle() const

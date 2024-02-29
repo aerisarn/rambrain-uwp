@@ -42,7 +42,11 @@ int main ( int argc, char **argv )
     int ret = 0;
     cout << "Starting check if binary specific config is read and used properly" << endl;
 
+#ifdef _WIN32
+    rambrainglobals::config.setCustomConfigPath("../../tests/testConfig.conf");
+#else
     rambrainglobals::config.setCustomConfigPath ( "../tests/testConfig.conf" );
+#endif
     rambrainglobals::config.reinit ( true );
 
     const configuration &config = rambrainglobals::config.getConfig();

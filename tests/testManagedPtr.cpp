@@ -447,12 +447,12 @@ TEST ( managedPtr, Unit_MultithreadingConcurrentCreateDelete )
         arr[i] = NULL;
     }
     #pragma omp parallel for
-    for ( unsigned int i = 0; i < arrsize; ++i ) {
+    for ( int i = 0; i < arrsize; ++i ) {
         arr[i] = new managedPtr<double> ( 1 );
 
     }
     #pragma omp parallel for
-    for ( unsigned int i = 0; i < arrsize; ++i ) {
+    for ( int i = 0; i < arrsize; ++i ) {
         delete arr[i];
 
     }
@@ -596,7 +596,7 @@ TEST ( managedPtr, Unit_EmptySizeAllowed )
 TEST ( managedPtr, Unit_GetSize )
 {
     managedDummySwap swap ( 200 );
-    dummyManagedMemory managedMemory ();
+    dummyManagedMemory managedMemory;
 
     managedPtr<double> ptr ( 14 );
 

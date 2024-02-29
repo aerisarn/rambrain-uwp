@@ -32,6 +32,11 @@
 #include <cstring>
 #include <algorithm>
 #include <functional>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#endif
 
 namespace rambrain
 {
@@ -93,6 +98,28 @@ void configLine<swapPolicy>::setValue ( const string &str )
         value = swapPolicy::autoextendable;
     }
 }
+#ifdef _WIN32
+unsigned long long getTotalSystemMemory()
+{
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    GlobalMemoryStatusEx(&status);
+    return status.ullAvailVirtual;
+}
+
+ULARGE_INTEGER getDiskFreeSpace()
+{
+    // Setup the DWORD variables.
+    ULARGE_INTEGER FreeBytesAvailableToCaller,
+        TotalNumberOfBytes,
+        TotalNumberOfFreeBytes;
+
+    GetDiskFreeSpaceExA(/*letter.c_str()*/NULL, &FreeBytesAvailableToCaller, &TotalNumberOfBytes, &TotalNumberOfFreeBytes);
+
+    return TotalNumberOfFreeBytes;
+}
+
+#endif
 
 configuration::configuration() : memoryManager ( "memoryManager", "cyclicManagedMemory", regexMatcher::text ),
     swap ( "swap", "managedFileSwap", regexMatcher::text ),
@@ -112,6 +139,9 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
     configOptions.push_back ( &enableDMA );
     configOptions.push_back ( &policy );
 
+#ifdef _WIN32
+    memory.value = getTotalSystemMemory() * 0.5;
+#else
     // Get free main memory
     ifstream meminfo ( "/proc/meminfo", ifstream::in );
     char line[1024];
@@ -139,6 +169,7 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
     bytes_avail = atol ( begin ) * 1024;
 
     memory.value = bytes_avail * 0.5;
+#endif
 
     // Get free partition space
     char exe[1024];
@@ -153,6 +184,8 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
 
         swapMemory.value = stats.f_bfree * stats.f_bsize / 2;
     }
+#else
+    swapMemory.value = getDiskFreeSpace().QuadPart / 2ull;
 #endif
 }
 
@@ -307,8 +340,7 @@ string configReader::getApplicationName() const
 #ifndef _WIN32
     ret = readlink ( "/proc/self/exe", exe, sizeof ( exe ) - 1 );
 #else
-    //TODO
-    ret = -1;
+    ret = ::GetModuleFileName(0, exe, 1024);
 #endif
     if ( ret == -1 ) {
         return "";
@@ -318,7 +350,10 @@ string configReader::getApplicationName() const
     string fullName ( exe );
 
     unsigned int found = fullName.find_last_of ( "/\\" );
-    return fullName.substr ( found + 1 );
+    unsigned int found_ext = fullName.find_last_of(".");
+    if (found_ext != std::string::npos)
+        return fullName.substr(found + 1, found_ext - found - 1);
+    return fullName.substr ( found + 1);
 }
 
 string configReader::getHomeDir() const

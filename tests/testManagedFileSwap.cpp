@@ -30,6 +30,10 @@ IGNORE_TEST_WARNINGS;
 #include "common.h"
 #include <chrono>
 
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 using namespace rambrain;
 
 /**
@@ -761,7 +765,13 @@ TEST ( managedFileSwap, Unit_CheckSwapStats )
     const global_bytesize mem = amount * countMem * sizeof ( double );
     const global_bytesize swapmem = amount * countSwap * sizeof ( double );
 
-    managedFileSwap swap ( swapmem, "./rambrainswap-%d-%d" );
+#ifdef WIN32
+    const char* filemask = "rambrainswap-%d-%d";
+#else
+    const char* filemask = "./rambrainswap-%d-%d";
+#endif
+
+    managedFileSwap swap ( swapmem, filemask );
     cyclicManagedMemory manager ( &swap, mem );
 
     manager.setPreemptiveUnloading ( false );

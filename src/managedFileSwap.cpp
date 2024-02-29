@@ -174,7 +174,7 @@ VOID WINAPI CompletedReadRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfe
 
 unsigned int sysconf(int type)
 {
-    return 0;
+    return 4096;
 }
 
 void usleep(__int64 usec)
@@ -240,13 +240,22 @@ int ftruncate(HANDLE hndl, long long int size_to_reserve)
         return -1;
     char  initializer_buf[1] = { 1 };
     DWORD written = 0;
-    if (!WriteFile(hndl, initializer_buf, 1, &written, NULL))
-        return -1;
+    OVERLAPPED ov = { 0 };
+    if (!WriteFile(hndl, initializer_buf, 1, NULL, &ov))
+    {
+        int last_error = GetLastError();
+        return last_error;
+    }
+    //if (!GetOverlappedResult(hndl, &ov, &written, TRUE))
+    //{
+    //    int last_error = GetLastError();
+    //    return last_error;
+    //}
 
     return 0;
 }
 
-#define FILE_INVALID 0
+#define FILE_INVALID INVALID_HANDLE_VALUE
 #else
 #define FILE_INVALID -1
 #endif
@@ -395,6 +404,7 @@ bool managedFileSwap::openSwapFileRange ( unsigned int start, unsigned int stop 
                 setDMA ( false );
                 return false;
             }
+            int error = GetLastError();
             errmsgf ( "Encountered error code %d when opening file %s\n", errno, fname );
             throw memoryException ( "Could not open swap file." );
             return false;
@@ -500,11 +510,16 @@ bool managedFileSwap::extendSwap ( global_bytesize size )
     return true;
 }
 
-
 global_bytesize managedFileSwap::getFreeDiskSpace()
 {
 #ifdef _WIN32
-    return 0;
+    ULARGE_INTEGER FreeBytesAvailableToCaller,
+        TotalNumberOfBytes,
+        TotalNumberOfFreeBytes;
+
+    GetDiskFreeSpaceExA(/*letter.c_str()*/NULL, &FreeBytesAvailableToCaller, &TotalNumberOfBytes, &TotalNumberOfFreeBytes);
+
+    return TotalNumberOfFreeBytes.QuadPart;
 #else
     string directory ( filemask );
     std::size_t found  = directory.find_last_of ( "/" );

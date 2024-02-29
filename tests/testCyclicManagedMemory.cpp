@@ -366,7 +366,7 @@ TEST ( cyclicManagedMemory, Unit_RandomAllocation )
         const unsigned int targetsize = test.random ( 10 ) + 1;
         const unsigned int totalspace = arraysize * targetsize * sizeof ( double );
         const unsigned int swappedmin = ( totalspace > memsize ? totalspace - memsize : 0u );
-        managedPtr<double> *arr[arraysize];
+        managedPtr<double> **arr = (managedPtr<double> **)malloc(sizeof(managedPtr<double>*) * arraysize);
 
         for ( unsigned int p = 0; p < arraysize; ++p ) {
             arr[p] = new managedPtr<double> ( targetsize );
@@ -397,6 +397,8 @@ TEST ( cyclicManagedMemory, Unit_RandomAllocation )
 
         ASSERT_EQ ( 0u, swap.getUsedSwap() );
         ASSERT_EQ ( manager.getSwappedMemory(), swap.getUsedSwap() );
+
+        free(arr);
     }
 }
 
@@ -456,10 +458,21 @@ TEST ( cyclicManagedMemory, Unit_NotEnoughSpaceInTotal )
 */
 TEST ( cyclicManagedMemory, Unit_WorkingWithSSE )
 {
+
+#ifdef _WIN32
+#pragma pack(push)
+#pragma pack(16)
+#endif
     union sixteen {
         float f[4];
         __m128 simd;
-    } __attribute__ ( ( aligned ( 16 ) ) );
+    }
+#ifdef _WIN32
+    ;
+#pragma pack(pop)
+#else
+    __attribute__ ( ( aligned ( 16 ) ) );
+#endif
 
     const unsigned int memsize = sizeof ( double ) * 3;
     const unsigned int swapmem = memsize * 100;
