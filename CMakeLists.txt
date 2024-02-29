@@ -86,12 +86,14 @@ if(USE_XPRESSIVE)
     endif()
 endif()
 
-find_package(PThreads4W REQUIRED)
-
-#find_package (Threads REQUIRED)
-#if(NOT CMAKE_USE_PTHREADS_INIT)
-#    error ("Could NOT find pthreads.")
-#endif()
+if (WIN32)
+    find_package(PThreads4W REQUIRED)
+else()
+    find_package (Threads REQUIRED)
+    if(NOT CMAKE_USE_PTHREADS_INIT)
+        error ("Could NOT find pthreads.")
+    endif()
+endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(-D__STRICT_ANSI__)
@@ -102,13 +104,16 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
-#find_package(AIO REQUIRED)
-#include_directories(${AIO_INCLUDE_DIR})
-
-find_package(Boost COMPONENTS system REQUIRED)
+if (UNIX)
+    find_package(AIO REQUIRED)
+    include_directories(${AIO_INCLUDE_DIR})
+endif()
 
 set(CMAKE_BUILD_TYPE DEBUG)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -g ${OPTIMISATION}")
+
+if (UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wall -g ${OPTIMISATION}")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -124,7 +129,6 @@ message("Git version is ${GIT_VERSION}")
 add_definitions(-D__GIT_VERSION="${GIT_VERSION}")
 
 add_subdirectory (src)
-add_subdirectory (external)
 
 if(BUILD_TESTS)
     add_subdirectory (tests)

@@ -242,9 +242,9 @@ public:
     }
 
     ///@brief Atomically sets use to a chunk if tracker is not already set to true. returns whether we set use or not.
-    bool setUse ( bool writable = true, long *tracker = NULL ) const {
+    bool setUse ( bool writable = true, bool *tracker = NULL ) const {
         if ( tracker )
-            if ( !rambrain_atomic_bool_compare_and_swap ( tracker, 0, 1 ) ) {
+            if ( !rambrain_atomic_bool_compare_and_swap ( tracker, false, true ) ) {
                 waitForSwapin();
                 return false;
             }

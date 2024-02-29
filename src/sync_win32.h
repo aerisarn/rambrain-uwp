@@ -87,6 +87,16 @@ __forceinline _Tp __sync_lock_test_and_set(
 template <class _Tp>
 __forceinline bool __sync_bool_compare_and_swap(
     _Tp* __ptr,
+    typename __sync_win32_enable_if<sizeof(_Tp) == sizeof(char), _Tp>::type __old_val,
+    typename __sync_win32_enable_if<true, _Tp>::type __new_val)
+{
+    return _InterlockedCompareExchange8((char*)(__ptr), (char)(__new_val),
+        (char)(__old_val)) == (char)(__old_val);
+}
+
+template <class _Tp>
+__forceinline bool __sync_bool_compare_and_swap(
+    _Tp* __ptr,
     typename __sync_win32_enable_if<sizeof(_Tp) == sizeof(long), _Tp>::type __old_val,
     typename __sync_win32_enable_if<true, _Tp>::type __new_val)
 {

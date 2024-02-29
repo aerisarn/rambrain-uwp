@@ -29,7 +29,6 @@
 #include <sys/stat.h>
 #include "exceptions.h"
 #include "managedMemory.h"
-#include <boost/asio/io_service.hpp>
 #include <signal.h>
 #include <sys/types.h>
 #include <fcntl.h>
