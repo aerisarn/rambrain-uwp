@@ -114,6 +114,26 @@ __forceinline bool __sync_bool_compare_and_swap(
         (__int64)(__old_val)) == (__int64)(__old_val);
 }
 
+template <class _Tp>
+__forceinline bool __sync_val_compare_and_swap(
+    _Tp* __ptr,
+    typename __sync_win32_enable_if<sizeof(_Tp) == sizeof(long), _Tp>::type __old_val,
+    typename __sync_win32_enable_if<true, _Tp>::type __new_val)
+{
+    return _InterlockedCompareExchange((long*)(__ptr), (long)(__new_val),
+        (long)(__old_val)) == (long)(__old_val);
+}
+
+template <class _Tp>
+__forceinline bool __sync_val_compare_and_swap(
+    _Tp* __ptr,
+    typename __sync_win32_enable_if<sizeof(_Tp) == sizeof(__int64), _Tp>::type __old_val,
+    typename __sync_win32_enable_if<true, _Tp>::type __new_val)
+{
+    return _InterlockedCompareExchange64((__int64*)(__ptr), (__int64)(__new_val),
+        (__int64)(__old_val)) == (__int64)(__old_val);
+}
+
 #endif // _LIBCPP_MSVCRT
 
 #endif // _LIBCPP_SUPPORT_WIN32_SYNC_WIN32_H

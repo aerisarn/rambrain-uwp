@@ -766,7 +766,7 @@ TEST ( managedFileSwap, Unit_CheckSwapStats )
     const global_bytesize swapmem = amount * countSwap * sizeof ( double );
 
 #ifdef WIN32
-    const char* filemask = "rambrainswap-%d-%d";
+    const char* filemask = "rambrainswap-test-%d-%d";
 #else
     const char* filemask = "./rambrainswap-%d-%d";
 #endif

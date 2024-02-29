@@ -46,23 +46,24 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <sys/stat.h>
-//#include <io.h>
+#include <chrono>
 #include <stdio.h>
-#include "blocking_queue.h"
+#include "LockFreeListFinal.h"
 
 
-blocking_queue<struct rambrain::io_event>* io_queue;
+lockfree::List io_queue;
 
 //used for multiple context, we don't need this
 static inline int io_setup(int maxevents, rambrain::io_context_t* ctxp) {
     *ctxp = 1;
-    io_queue = new blocking_queue<struct rambrain::io_event>(maxevents);
+    io_queue = lockfree::list_init();
     return 0;
 }
 
 //unused in single process context
 static inline int io_destroy(rambrain::io_context_t ctx) {
-    delete io_queue;
+    io_queue->destructor(io_queue->head);
+    free(io_queue);
     return 0;
 }
 
@@ -74,6 +75,7 @@ static inline int io_destroy(rambrain::io_context_t ctx) {
 inline void io_prep_pread(struct rambrain::iocb* iocb, file_descriptor_t fd, void* buf, size_t count, long long offset)
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
+    iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -81,14 +83,11 @@ inline void io_prep_pread(struct rambrain::iocb* iocb, file_descriptor_t fd, voi
     iocb->operation = IO_CMD_PREAD;
 }
 
-VOID WINAPI CompletedWriteRoutine(DWORD, DWORD, LPOVERLAPPED);
-
-VOID WINAPI CompletedReadRoutine(DWORD, DWORD, LPOVERLAPPED);
-
 //just prepare the context
 inline void io_prep_pwrite(struct rambrain::iocb* iocb, file_descriptor_t fd, void* buf, size_t count, long long offset)
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
+    iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -104,20 +103,23 @@ int io_submit(rambrain::io_context_t ctx, long nr, struct rambrain::iocb* iocbs[
         struct rambrain::iocb* request = iocbs[i];
         if (request->operation == IO_CMD_PREAD)
         {
-            Result = ReadFileEx(request->fd, request->buf, request->count, (LPOVERLAPPED)request, CompletedReadRoutine);
-            if (Result != ERROR_SUCCESS)
+            Result = ReadFile(request->fd, request->buf, request->count, NULL, (LPOVERLAPPED)request);
+            if (Result != TRUE && GetLastError() != ERROR_IO_PENDING)
             {
-
+                Result = GetLastError();
+                return Result;
             }
         }
         else if (request->operation == IO_CMD_PWRITE)
         {
-            Result = WriteFileEx(request->fd, request->buf, request->count, (LPOVERLAPPED)request, CompletedWriteRoutine);
-            if (Result != ERROR_SUCCESS)
+            Result = WriteFile(request->fd, request->buf, request->count, NULL, (LPOVERLAPPED)request);
+            if (Result != TRUE && GetLastError() != ERROR_IO_PENDING)
             {
-
+                Result = GetLastError();
+                return Result;
             }
         }
+        io_queue->insert(i, io_queue->head, request);
     }
     return 1;
 }
@@ -132,62 +134,106 @@ timespec_to_msec(const struct timespec* a)
 int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambrain::io_event* events, struct timespec* timeout)
 {
     long completed = 0;
+    lockfree::node_lf* node = io_queue->head;
+    while (completed < nr)
+    {
+        while (node)
+        {
+            struct rambrain::iocb* request = (struct rambrain::iocb*)node->value;
+            DWORD transferred = 0;
+            BOOL result = GetOverlappedResult(request->fd, &request->oOverlap, &transferred, FALSE);
+            if (TRUE == result)
+            {
+                //remove request
+                int delete_key = node->key;
+                lockfree::node_lf* delete_node = node;
+                node = node->next;
+                io_queue->delete_node(delete_key, delete_node);
+            }
+            else {
+                if (ERROR_IO_PENDING == GetLastError())
+                    throw std::runtime_error("");
+                node = node->next;
+            }
+        }
+    }
     for (int i = 0; i < nr; ++i)
     {
-        if (completed == min_nr && io_queue->size() <= 0)
+        if (completed == min_nr && io_queue-> <= 0)
             break;
-        io_queue->take<std::chrono::milliseconds>(events[i], timespec_to_msec(timeout) * 1ms);
-        if (events[i].res != ERROR_SUCCESS)
+        if (io_queue->take<std::chrono::milliseconds>(events[i], timespec_to_msec(timeout) * 1ms))
         {
-            return -events[i].res;
+            if (events[i].res != ERROR_SUCCESS)
+            {
+                return -events[i].res;
+            }
+            completed++;
         }
-        completed++;
+        else {
+            errno = ETIMEDOUT;
+            break;
+        }
     }
     return completed;
 }
 
 //Implementation
 
-VOID WINAPI CompletedWriteRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
-{
-    struct rambrain::io_event this_event;
-    this_event.res = dwErrorCode;
-    this_event.res2 = dwNumberOfBytesTransfered;
-    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
-    this_event.data = NULL;
-    io_queue->put(this_event);
-}
-
-VOID WINAPI CompletedReadRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
-{
-    struct rambrain::io_event this_event;
-    this_event.res = dwErrorCode;
-    this_event.res2 = dwNumberOfBytesTransfered;
-    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
-    this_event.data = NULL;
-    io_queue->put(this_event);
-}
+//VOID WINAPI CompletedWriteRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+//{
+//    struct rambrain::io_event this_event;
+//    this_event.res = dwErrorCode;
+//    this_event.res2 = dwNumberOfBytesTransfered;
+//    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
+//    this_event.data = NULL;
+//    io_queue->put(this_event);
+//}
+//
+//VOID WINAPI CompletedReadRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+//{
+//    struct rambrain::io_event this_event;
+//    this_event.res = dwErrorCode;
+//    this_event.res2 = dwNumberOfBytesTransfered;
+//    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
+//    this_event.data = NULL;
+//    io_queue->put(this_event);
+//}
 
 //Utilities
 
 #define _SC_PAGE_SIZE 0
 
+DWORD get_page_size()
+{
+    SYSTEM_INFO sysInfo;
+
+    GetSystemInfo(&sysInfo);
+
+    return sysInfo.dwPageSize;
+}
+
 unsigned int sysconf(int type)
 {
-    return 4096;
+    switch (type)
+    {
+    case _SC_PAGE_SIZE: return get_page_size();
+    default:break;
+    }
+    return 0;
 }
 
 void usleep(__int64 usec)
 {
-    HANDLE timer;
-    LARGE_INTEGER ft;
+    //HANDLE timer;
+    //LARGE_INTEGER ft;
 
-    ft.QuadPart = -(10 * usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+    //ft.QuadPart = -(10 * usec); // Convert to 100 nanosecond interval, negative value indicates relative time
 
-    timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    WaitForSingleObject(timer, INFINITE);
-    CloseHandle(timer);
+    //timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    //SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    //WaitForSingleObjectEx(timer, INFINITE, TRUE);
+    //CloseHandle(timer);
+    SleepEx(1, TRUE);
 }
 
 #define O_DIRECT 100
@@ -198,7 +244,7 @@ HANDLE open(const char* szFileName, int mode, int permissions)
 {
     HANDLE hFile = CreateFile(szFileName,		// Name of the file
         (GENERIC_READ | GENERIC_WRITE),	// Open for writing
-        0,								// Do not share
+        (FILE_SHARE_READ | FILE_SHARE_WRITE),								// Do not share
         NULL,							// Default security
         CREATE_ALWAYS,					// Overwrite existing
         // The file must be opened for asynchronous I/O by using the 
@@ -213,21 +259,29 @@ BOOL close(HANDLE hndl)
     return CloseHandle(hndl);
 }
 
+
+
+
 int ftruncate(HANDLE hndl, long long int size_to_reserve)
 {
 
     if (size_to_reserve <= 0)
         return 0;
 
+    DWORD pageSize = get_page_size();
+
+    if (size_to_reserve < pageSize)
+        size_to_reserve = pageSize;
+
     LARGE_INTEGER minus_one = { 0 }, zero = { 0 };
-    minus_one.QuadPart = -1;
+    minus_one.QuadPart = -pageSize;
 
     // Get the current file position
     LARGE_INTEGER old_pos = { 0 };
     if (!SetFilePointerEx(hndl, zero, &old_pos, FILE_CURRENT))
         return -1;
 
-    // Movie file position to the new end. These calls do NOT result in the actual allocation of
+    // Move file position to the new end. These calls do NOT result in the actual allocation of
     // new blocks, but they must succeed.
     LARGE_INTEGER new_pos = { 0 };
     new_pos.QuadPart = size_to_reserve;
@@ -235,23 +289,29 @@ int ftruncate(HANDLE hndl, long long int size_to_reserve)
         return -1;
     if (!SetEndOfFile(hndl))
         return -1;
-
     if (!SetFilePointerEx(hndl, minus_one, NULL, FILE_END))
         return -1;
-    char  initializer_buf[1] = { 1 };
+    //char  initializer_buf[1] = { 1 };
     DWORD written = 0;
     OVERLAPPED ov = { 0 };
-    if (!WriteFile(hndl, initializer_buf, 1, NULL, &ov))
+    //ov.OffsetHigh = minus_one.HighPart;
+    //ov.Offset = minus_one.LowPart;
+    unsigned char* initializer_buf = (unsigned char*)_aligned_malloc(pageSize, pageSize);
+    ZeroMemory(initializer_buf, pageSize);
+
+    ov.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
+    if (FALSE != WriteFile(hndl, initializer_buf, pageSize, 0, &ov) ||
+        GetLastError() != ERROR_IO_PENDING)
     {
         int last_error = GetLastError();
         return last_error;
     }
-    //if (!GetOverlappedResult(hndl, &ov, &written, TRUE))
-    //{
-    //    int last_error = GetLastError();
-    //    return last_error;
-    //}
-
+    if (TRUE != GetOverlappedResult(hndl, &ov, &written, TRUE) || written != pageSize)
+    {
+        int last_error = GetLastError();
+        return last_error;
+    }
+    CloseHandle(ov.hEvent);
     return 0;
 }
 
@@ -361,7 +421,11 @@ void managedFileSwap::closeSwapFiles()
 void managedFileSwap::setDMA ( bool arg1 )
 {
     enableDMA = arg1;
+#ifdef _WIN32
+    memoryAlignment = get_page_size();
+#else
     memoryAlignment = arg1 ? 512 : 1; //Dynamical detection is tricky if not impossible to solve in general
+#endif
 }
 
 void managedFileSwap::close()
