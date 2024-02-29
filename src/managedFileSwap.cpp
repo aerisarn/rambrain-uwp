@@ -49,19 +49,21 @@
 #include <sys/stat.h>
 //#include <io.h>
 #include <stdio.h>
+#include "blocking_queue.h"
 
-//O_DIRECT TODO
-//https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering
 
+blocking_queue<struct rambrain::io_event>* io_queue;
 
 //used for multiple context, we don't need this
 static inline int io_setup(int maxevents, rambrain::io_context_t* ctxp) {
     *ctxp = 1;
+    io_queue = new blocking_queue<struct rambrain::io_event>(maxevents);
     return 0;
 }
 
 //unused in single process context
 static inline int io_destroy(rambrain::io_context_t ctx) {
+    delete io_queue;
     return 0;
 }
 
@@ -121,31 +123,50 @@ int io_submit(rambrain::io_context_t ctx, long nr, struct rambrain::iocb* iocbs[
     return 1;
 }
 
+static inline int64_t
+timespec_to_msec(const struct timespec* a)
+{
+    return (int64_t)a->tv_sec * 1000 + a->tv_nsec / 1000;
+}
+
 //Attempts to read up to nr events from the completion queue for the aio_context specified by ctx.
 int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambrain::io_event* events, struct timespec* timeout)
 {
     long completed = 0;
-    struct rambrain::io_event* event = NULL;
     for (int i = 0; i < nr; ++i)
     {
-        if (completed == min_nr)
+        if (completed == min_nr && io_queue->size() <= 0)
             break;
-        event = &events[i];
-        //GetOverlappedResultEx()
+        io_queue->take<std::chrono::milliseconds>(events[i], timespec_to_msec(timeout) * 1ms);
+        if (events[i].res != ERROR_SUCCESS)
+        {
+            return -events[i].res;
+        }
+        completed++;
     }
-    return 0;
+    return completed;
 }
 
 //Implementation
 
-VOID WINAPI CompletedWriteRoutine(DWORD, DWORD, LPOVERLAPPED)
+VOID WINAPI CompletedWriteRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
-    //NTD
+    struct rambrain::io_event this_event;
+    this_event.res = dwErrorCode;
+    this_event.res2 = dwNumberOfBytesTransfered;
+    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
+    this_event.data = NULL;
+    io_queue->put(this_event);
 }
 
-VOID WINAPI CompletedReadRoutine(DWORD, DWORD, LPOVERLAPPED)
+VOID WINAPI CompletedReadRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
-    //NTD
+    struct rambrain::io_event this_event;
+    this_event.res = dwErrorCode;
+    this_event.res2 = dwNumberOfBytesTransfered;
+    this_event.obj = (struct rambrain::iocb*)lpOverlapped;
+    this_event.data = NULL;
+    io_queue->put(this_event);
 }
 
 //Utilities
