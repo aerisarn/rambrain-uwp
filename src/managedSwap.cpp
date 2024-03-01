@@ -38,8 +38,8 @@ void managedSwap::claimUsageof ( global_bytesize bytes, bool rambytes, bool used
     if ( !rambytes ) {
 //         if((swapFree<bytes&&used )||swapUsed<bytes&&!used)
 //             throw memoryException("Wrong memory accounting!");
-        swapFree += ( used ? -bytes : bytes );
-        swapUsed += ( used ? bytes : -bytes );
+        swapFree += ( used ? -(long long)bytes : bytes );
+        swapUsed += ( used ? bytes : -(long long)bytes );
     }
 }
 

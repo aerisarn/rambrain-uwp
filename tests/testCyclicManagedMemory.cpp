@@ -235,7 +235,7 @@ TEST ( cyclicManagedMemory, Integration_RandomArrayAccess )
 #endif
 
         for ( int n = 0; n < allocarrn; ++n ) {
-            unsigned int randomi = test.random ( allocarrn );
+            unsigned int randomi = test.random ( allocarrn - 1 );
             adhereTo<double> aLoc ( *ptrs[randomi] );
 
             ASSERT_TRUE ( manager.checkCycle() );

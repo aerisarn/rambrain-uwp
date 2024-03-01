@@ -811,16 +811,16 @@ bool managedMemory::waitForSwapout ( managedMemoryChunk &chunk, bool keepSwapLoc
 void rambrain::managedMemory::claimUsageof ( rambrain::global_bytesize bytes, bool rambytes, bool used )
 {
     if ( rambytes ) {
-        memory_used += used ? bytes : - bytes ;
+        memory_used += used ? bytes : -(long long)bytes ;
     } else {
-        memory_swapped += used ? bytes : -bytes ;
+        memory_swapped += used ? bytes : -(long long)bytes ;
     }
 
 }
 
 void rambrain::managedMemory::claimTobefreed ( rambrain::global_bytesize bytes, bool tobefreed )
 {
-    memory_tobefreed += tobefreed ? bytes : -bytes;
+    memory_tobefreed += tobefreed ? bytes : -(long long)bytes;
 }
 
 

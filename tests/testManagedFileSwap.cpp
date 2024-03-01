@@ -316,7 +316,7 @@ TEST ( managedFileSwap, Integration_RandomAccess )
     tester test;
     test.setSeed ( );
 
-    managedFileSwap swap ( totalswap, "./rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( totalswap, "rambrainswap-%d-%d", oneswap );
     cyclicManagedMemory manager ( &swap, oneswap );
 
     /*ASSERT_EQ ( 0, manager.getSwappedMemory() ); //Deallocated all pointers
@@ -334,7 +334,7 @@ TEST ( managedFileSwap, Integration_RandomAccess )
         objmask[n] = NULL;
     }
     for ( unsigned int n = 0; n < 10 * obj_no; ++n ) {
-        global_bytesize no = test.random ( obj_no );
+        global_bytesize no = test.random ( obj_no - 1 );
 
         if ( objmask[no] == NULL ) {
             ASSERT_TRUE ( manager.checkCycle() );
@@ -349,6 +349,8 @@ TEST ( managedFileSwap, Integration_RandomAccess )
             {
                 adhereTo<double> objoloc ( *objmask[no] );
                 double *darr =  objoloc;
+                if (darr[0] == 0.)
+                    int debug = 1;
                 ASSERT_EQ ( no, darr[0] );
             }
             delete objmask[no];
@@ -378,7 +380,7 @@ TEST ( managedFileSwap, Integration_RandomAccessVariousSize )
     tester test;
     test.setSeed();
 
-    managedFileSwap swap ( totalswap, "./rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( totalswap, "rambrainswap-%d-%d", oneswap );
     cyclicManagedMemory manager ( &swap, oneswap );
 
     /*ASSERT_EQ ( 0, manager.getSwappedMemory() ); //Deallocated all pointers
@@ -684,7 +686,7 @@ TEST ( managedFileSwap, Integration_MatrixTranspose )
     const unsigned int mem = size * sizeof ( double ) *  memlines;
     const unsigned int swapmem = size * size * sizeof ( double ) * 2;
 
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+    managedFileSwap swap ( swapmem, "rambrainswap-matrix-%d-%d" );
     cyclicManagedMemory manager ( &swap, mem );
 
     // Allocate and set

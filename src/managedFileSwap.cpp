@@ -181,11 +181,11 @@ int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambra
                         events[completed].res2 = ERROR_SUCCESS;
                         events[completed].obj = request;
                         completed++;
-                        if (completed >= nr)
-                            return completed;
                     }
                     //remove request
                     it = io_queue.erase(it);
+                    if (completed >= nr)
+                        return completed;
                 }
                 else {
                     if (ERROR_IO_PENDING != GetLastError() && ERROR_IO_INCOMPLETE != GetLastError())
@@ -235,6 +235,10 @@ int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambra
         //        node = node->next;
         //    }
         //}
+        if (completed >= min_nr)
+        {
+            break;
+        }
         if (completed < nr)
         {
             SleepEx(0, TRUE);
@@ -329,6 +333,35 @@ void usleep(__int64 usec)
 #define S_IRUSR  200
 #define S_IWUSR  300
 
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_SYSTEM | WINAPI_PARTITION_GAMES)
+
+#else
+HANDLE WINAPI CreateFileW(LPCWSTR lpFileName,
+    DWORD dwDesiredAccess,
+    DWORD dwShareMode,
+    LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    DWORD dwCreationDisposition,
+    DWORD dwFlagsAndAttributes,
+    HANDLE hTemplateFile)
+{
+    CREATEFILE2_EXTENDED_PARAMETERS createExParams;
+    createExParams.dwSize = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
+    createExParams.dwFileAttributes = dwFlagsAndAttributes & 0xFFFF;
+    createExParams.dwFileFlags = dwFlagsAndAttributes & 0xFFF00000;
+    createExParams.dwSecurityQosFlags = dwFlagsAndAttributes & 0x000F0000;
+    createExParams.lpSecurityAttributes = lpSecurityAttributes;
+    createExParams.hTemplateFile = hTemplateFile;
+    return CreateFile2(lpFileName, dwDesiredAccess, dwShareMode, dwCreationDisposition, &createExParams);
+}
+
+int getpid(void)
+{
+    //there's only one process running that will ever need this, so
+    return 666;
+}
+
+#endif
+
 HANDLE open(const char* szFileName, int mode, int permissions)
 {
     // The file must be opened for asynchronous I/O by using the 
@@ -337,7 +370,9 @@ HANDLE open(const char* szFileName, int mode, int permissions)
     if ((mode & O_DIRECT) == O_DIRECT)
         flags |= FILE_FLAG_NO_BUFFERING;
 
-    HANDLE hFile = CreateFile(szFileName,		// Name of the file
+    std::wstring wsTmp(szFileName, szFileName+strlen(szFileName));
+
+    HANDLE hFile = CreateFileW(wsTmp.c_str(),		// Name of the file
         (GENERIC_READ | GENERIC_WRITE),	// Open for writing
         (FILE_SHARE_READ | FILE_SHARE_WRITE),								// Do not share
         NULL,							// Default security
@@ -367,7 +402,7 @@ int ftruncate(HANDLE hndl, long long int size_to_reserve)
         size_to_reserve = pageSize;
 
     LARGE_INTEGER minus_one = { 0 }, zero = { 0 };
-    minus_one.QuadPart = -pageSize;
+    minus_one.QuadPart = -(long long)pageSize;
 
     // Get the current file position
     LARGE_INTEGER old_pos = { 0 };
@@ -506,6 +541,7 @@ void managedFileSwap::closeSwapFiles()
     for ( unsigned int n = 0; n < pageFileNumber; ++n ) {
         char fname[1024];
         snprintf ( fname, 1024, filemask, getpid(), n );
+#pragma warning(suppress : 4996)
         unlink ( fname );
     }
 

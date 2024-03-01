@@ -92,7 +92,7 @@ void tester::setSeed ( unsigned int seed )
 
 int tester::random ( int max ) const
 {
-    return static_cast<uint64_t> ( rand() ) * max / RAND_MAX;
+    return static_cast<uint64_t> ( rand() ) * (max) / RAND_MAX;
 }
 
 uint64_t tester::random ( uint64_t max ) const

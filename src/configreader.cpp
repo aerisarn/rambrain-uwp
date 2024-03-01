@@ -340,7 +340,7 @@ string configReader::getApplicationName() const
 #ifndef _WIN32
     ret = readlink ( "/proc/self/exe", exe, sizeof ( exe ) - 1 );
 #else
-    ret = ::GetModuleFileName(0, exe, 1024);
+    ret = ::GetModuleFileNameA(0, exe, 1024);
 #endif
     if ( ret == -1 ) {
         return "";
