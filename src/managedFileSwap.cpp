@@ -48,22 +48,29 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <stdio.h>
-#include "LockFreeListFinal.h"
+//has issues, TODO
+//#include "LockFreeListFinal.h"
+#include <mutex>
+#include <process.h>
+#include <atomic>
 
-
-lockfree::List io_queue;
+//std::atomic<uint64_t> io_key = 0;
+std::mutex io_mutex;
+std::list<struct rambrain::iocb*> io_queue;
 
 //used for multiple context, we don't need this
 static inline int io_setup(int maxevents, rambrain::io_context_t* ctxp) {
     *ctxp = 1;
-    io_queue = lockfree::list_init();
+    //io_queue = lockfree::list_init();
+    if (!io_queue.empty())
+        io_queue.clear();
     return 0;
 }
 
 //unused in single process context
 static inline int io_destroy(rambrain::io_context_t ctx) {
-    io_queue->destructor(io_queue->head);
-    free(io_queue);
+    //io_queue->destructor(io_queue->head);
+    //free(io_queue);
     return 0;
 }
 
@@ -76,6 +83,7 @@ inline void io_prep_pread(struct rambrain::iocb* iocb, file_descriptor_t fd, voi
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
     iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
+    iocb->oOverlap.Pointer = (PVOID)offset;
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -88,6 +96,7 @@ inline void io_prep_pwrite(struct rambrain::iocb* iocb, file_descriptor_t fd, vo
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
     iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
+    iocb->oOverlap.Pointer = (PVOID)offset;
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -119,61 +128,142 @@ int io_submit(rambrain::io_context_t ctx, long nr, struct rambrain::iocb* iocbs[
                 return Result;
             }
         }
-        io_queue->insert(i, io_queue->head, request);
+        {
+            const std::lock_guard<std::mutex> lock(io_mutex);
+            io_queue.push_back(request);
+        }
+        //io_queue->insert(io_key++, io_queue->head, request);
     }
     return 1;
 }
 
 static inline int64_t
-timespec_to_msec(const struct timespec* a)
+timespec_to_nsec(const struct timespec* a)
 {
-    return (int64_t)a->tv_sec * 1000 + a->tv_nsec / 1000;
+    return (int64_t)a->tv_sec * 1000000000 + a->tv_nsec;
+}
+
+template <
+    class result_t = std::chrono::milliseconds,
+    class clock_t = std::chrono::steady_clock,
+    class duration_t = std::chrono::milliseconds
+>
+auto since(std::chrono::time_point<clock_t, duration_t> const& start)
+{
+    return std::chrono::duration_cast<result_t>(clock_t::now() - start);
 }
 
 //Attempts to read up to nr events from the completion queue for the aio_context specified by ctx.
 int io_getevents(rambrain::io_context_t ctx, long min_nr, long nr, struct rambrain::io_event* events, struct timespec* timeout)
 {
     long completed = 0;
-    lockfree::node_lf* node = io_queue->head;
-    while (completed < nr)
+    //lockfree::node_lf* node = io_queue->head->next;
+    auto start = std::chrono::steady_clock::now();
+    int64_t deadline = 0;
+    if (NULL != timeout)
+        deadline = timespec_to_nsec(timeout);
+    while (completed < min_nr)
     {
-        while (node)
         {
-            struct rambrain::iocb* request = (struct rambrain::iocb*)node->value;
-            DWORD transferred = 0;
-            BOOL result = GetOverlappedResult(request->fd, &request->oOverlap, &transferred, FALSE);
-            if (TRUE == result)
+            const std::lock_guard<std::mutex> lock(io_mutex);
+            auto it = io_queue.begin();
+            while (it != io_queue.end())
             {
-                //remove request
-                int delete_key = node->key;
-                lockfree::node_lf* delete_node = node;
-                node = node->next;
-                io_queue->delete_node(delete_key, delete_node);
+                auto request = *it;
+                DWORD transferred = 0;
+                BOOL result = GetOverlappedResult(request->fd, &request->oOverlap, &transferred, FALSE);
+                if (TRUE == result)
+                {
+                    if (transferred == request->count)
+                    {
+                        CloseHandle(request->oOverlap.hEvent);
+                        events[completed].res = transferred;
+                        events[completed].res2 = ERROR_SUCCESS;
+                        events[completed].obj = request;
+                        completed++;
+                        if (completed >= nr)
+                            return completed;
+                    }
+                    //remove request
+                    it = io_queue.erase(it);
+                }
+                else {
+                    if (ERROR_IO_PENDING != GetLastError() && ERROR_IO_INCOMPLETE != GetLastError())
+                    {
+                        int error = GetLastError();
+                        throw std::runtime_error("");
+                    }
+                    ++it;
+                }
             }
-            else {
-                if (ERROR_IO_PENDING == GetLastError())
-                    throw std::runtime_error("");
-                node = node->next;
-            }
+        }
+
+        //while (node)
+        //{
+        //    struct rambrain::iocb* request = (struct rambrain::iocb*)node->value;
+        //    if (request == NULL)
+        //    {
+        //        node = node->next;
+        //        continue;
+        //    }
+        //    DWORD transferred = 0;
+        //    BOOL result = GetOverlappedResult(request->fd, &request->oOverlap, &transferred, FALSE);
+        //    if (TRUE == result)
+        //    {
+        //        if (transferred == request->count)
+        //        {
+        //            CloseHandle(request->oOverlap.hEvent);
+        //            events[completed].res = transferred;
+        //            events[completed].res2 = ERROR_SUCCESS;
+        //            events[completed].obj = request;
+        //            completed++;
+        //            if (completed >= nr)
+        //                return completed;
+        //        }
+        //        //remove request
+        //        int delete_key = node->key;
+        //        lockfree::node_lf* delete_node = node;
+        //        node = node->next;
+        //        io_queue->delete_node(delete_key, delete_node);
+        //    }
+        //    else {
+        //        if (ERROR_IO_PENDING != GetLastError() && ERROR_IO_INCOMPLETE != GetLastError())
+        //        {
+        //            int error = GetLastError();
+        //            throw std::runtime_error("");
+        //        }
+        //        node = node->next;
+        //    }
+        //}
+        if (completed < nr)
+        {
+            SleepEx(0, TRUE);
+        }
+        auto elapsed = since<std::chrono::nanoseconds>(start).count();
+        if (elapsed >= deadline)
+        {
+            if (deadline != 0)
+                errno = ETIMEDOUT;
+            break;
         }
     }
-    for (int i = 0; i < nr; ++i)
-    {
-        if (completed == min_nr && io_queue-> <= 0)
-            break;
-        if (io_queue->take<std::chrono::milliseconds>(events[i], timespec_to_msec(timeout) * 1ms))
-        {
-            if (events[i].res != ERROR_SUCCESS)
-            {
-                return -events[i].res;
-            }
-            completed++;
-        }
-        else {
-            errno = ETIMEDOUT;
-            break;
-        }
-    }
+    //for (int i = 0; i < nr; ++i)
+    //{
+    //    if (completed == min_nr && io_queue-> <= 0)
+    //        break;
+    //    if (io_queue->take<std::chrono::milliseconds>(events[i], timespec_to_msec(timeout) * 1ms))
+    //    {
+    //        if (events[i].res != ERROR_SUCCESS)
+    //        {
+    //            return -events[i].res;
+    //        }
+    //        completed++;
+    //    }
+    //    else {
+    //        errno = ETIMEDOUT;
+    //        break;
+    //    }
+    //}
     return completed;
 }
 
@@ -224,16 +314,15 @@ unsigned int sysconf(int type)
 
 void usleep(__int64 usec)
 {
-    //HANDLE timer;
-    //LARGE_INTEGER ft;
+    HANDLE timer;
+    LARGE_INTEGER ft;
 
-    //ft.QuadPart = -(10 * usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+    ft.QuadPart = -(10 * usec); // Convert to 100 nanosecond interval, negative value indicates relative time
 
-    //timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    //SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    //WaitForSingleObjectEx(timer, INFINITE, TRUE);
-    //CloseHandle(timer);
-    SleepEx(1, TRUE);
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObjectEx(timer, INFINITE, TRUE);
+    CloseHandle(timer);
 }
 
 #define O_DIRECT 100
@@ -242,14 +331,18 @@ void usleep(__int64 usec)
 
 HANDLE open(const char* szFileName, int mode, int permissions)
 {
+    // The file must be opened for asynchronous I/O by using the 
+// FILE_FLAG_OVERLAPPED flag.
+    DWORD flags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED;
+    if ((mode & O_DIRECT) == O_DIRECT)
+        flags |= FILE_FLAG_NO_BUFFERING;
+
     HANDLE hFile = CreateFile(szFileName,		// Name of the file
         (GENERIC_READ | GENERIC_WRITE),	// Open for writing
         (FILE_SHARE_READ | FILE_SHARE_WRITE),								// Do not share
         NULL,							// Default security
         CREATE_ALWAYS,					// Overwrite existing
-        // The file must be opened for asynchronous I/O by using the 
-        // FILE_FLAG_OVERLAPPED flag.
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING,
+        flags,
         NULL);
     return hFile;
 }
@@ -422,7 +515,7 @@ void managedFileSwap::setDMA ( bool arg1 )
 {
     enableDMA = arg1;
 #ifdef _WIN32
-    memoryAlignment = get_page_size();
+    memoryAlignment = arg1 ? get_page_size() : 1;
 #else
     memoryAlignment = arg1 ? 512 : 1; //Dynamical detection is tricky if not impossible to solve in general
 #endif

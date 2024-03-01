@@ -595,8 +595,8 @@ TEST ( managedPtr, Unit_EmptySizeAllowed )
  */
 TEST ( managedPtr, Unit_GetSize )
 {
-    managedDummySwap swap ( 200 );
-    dummyManagedMemory managedMemory;
+    managedDummySwap swap (sizeof(double) * 14);
+    //dummyManagedMemory managedMemory;
 
     managedPtr<double> ptr ( 14 );
 

@@ -45,7 +45,11 @@ TEST ( managedFileSwap, Unit_LazyPffree )
     const unsigned int dblamount = 1024;
     const unsigned int dblsize = dblamount * sizeof ( double );
     const unsigned int swapmem = dblsize * 10;
+#ifdef WIN32
+    managedFileSwap swap(swapmem, "rambrainswap-tmp-%d-%d");
+#else
     managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+#endif
     cyclicManagedMemory manager ( &swap, dblsize * 10 );
 
 
@@ -98,7 +102,11 @@ TEST ( managedFileSwap, Unit_ManualSwapping ) //This screws default manager, as 
     const unsigned int dblamount = 100;
     const unsigned int dblsize = dblamount * sizeof ( double );
     const unsigned int swapmem = dblsize * 10;
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+#ifdef WIN32
+    managedFileSwap swap(swapmem, "rambrainswap-tmp-%d-%d");
+#else
+    managedFileSwap swap(swapmem, "/tmp/rambrainswap-%d-%d");
+#endif
     //Protect default manager from manipulations:
     managedDummySwap dummyswap ( gig );
     cyclicManagedMemory dummymanager ( &dummyswap, gig );
@@ -111,7 +119,7 @@ TEST ( managedFileSwap, Unit_ManualSwapping ) //This screws default manager, as 
     managedMemoryChunk *chunk = new managedMemoryChunk ( 1 );
 #endif
     chunk->status = MEM_ALLOCATED;
-    chunk->locPtr = malloc ( dblsize );
+    chunk->locPtr = _mm_malloc ( dblsize, 4096 );
     chunk->size = dblsize;
 
     pthread_mutex_lock ( & ( managedMemory::stateChangeMutex ) );
@@ -127,7 +135,7 @@ TEST ( managedFileSwap, Unit_ManualSwapping ) //This screws default manager, as 
     ASSERT_EQ ( 0u, swap.getUsedSwap() );
 
     pthread_mutex_unlock ( & ( managedMemory::stateChangeMutex ) );
-    free ( chunk->locPtr );
+    _mm_free ( chunk->locPtr );
     delete chunk;
 }
 
@@ -139,7 +147,11 @@ TEST ( managedFileSwap, Unit_ManualMultiSwapping )
     const unsigned int dblamount = 100;
     const unsigned int dblsize = dblamount * sizeof ( double );
     const unsigned int swapmem = dblsize * 10;
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+#ifdef WIN32
+    managedFileSwap swap(swapmem, "rambrainswap-tmp-%d-%d");
+#else
+    managedFileSwap swap(swapmem, "/tmp/rambrainswap-%d-%d");
+#endif
 
     //Protect default manager from manipulations:
     managedDummySwap dummyswap ( gig );
@@ -158,7 +170,7 @@ TEST ( managedFileSwap, Unit_ManualMultiSwapping )
 #endif
 
         chunks[i]->status = MEM_ALLOCATED;
-        chunks[i]->locPtr = malloc ( dblsize );
+        chunks[i]->locPtr = _mm_malloc ( dblsize, 4096 );
         chunks[i]->size = dblsize;
     }
 
@@ -173,9 +185,9 @@ TEST ( managedFileSwap, Unit_ManualMultiSwapping )
 
     for ( int i = 0; i < 2; ++i ) {
         if ( chunks[i]->status == MEM_SWAPPED ) {
-            free ( chunks[i]->swapBuf );
+            _mm_free ( chunks[i]->swapBuf );
         } else {
-            free ( chunks[i]->locPtr );
+            _mm_free ( chunks[i]->locPtr );
         }
         delete chunks[i];
     }
@@ -190,7 +202,11 @@ TEST ( managedFileSwap, Unit_ManualSwappingDelete )
     const unsigned int dblamount = 100;
     const unsigned int dblsize = dblamount * sizeof ( double );
     const unsigned int swapmem = dblsize * 10;
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+#ifdef WIN32
+    managedFileSwap swap(swapmem, "rambrainswap-tmp-%d-%d");
+#else
+    managedFileSwap swap(swapmem, "/tmp/rambrainswap-%d-%d");
+#endif
 
     //Protect default manager from manipulations:
     managedDummySwap dummyswap ( gig );
@@ -205,7 +221,7 @@ TEST ( managedFileSwap, Unit_ManualSwappingDelete )
     managedMemoryChunk *chunk = new managedMemoryChunk ( 1 );
 #endif
     chunk->status = MEM_ALLOCATED;
-    chunk->locPtr =  malloc ( dblsize );
+    chunk->locPtr =  _mm_malloc ( dblsize, 4096 );
     chunk->size = dblsize;
 
     swap.swapOut ( chunk );
@@ -249,7 +265,7 @@ TEST ( managedFileSwap, Unit_SwapSize )
     const unsigned int dblsize = dblamount * sizeof ( double );
     const unsigned int swapmem = dblsize * 10;
     const unsigned int memsize = dblsize * 1.5;
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap-%d-%d" );
+    managedFileSwap swap ( swapmem, "rambrainswap-%d-%d" );
     cyclicManagedMemory manager ( &swap, memsize );
 
     ASSERT_EQ ( mib, swap.getSwapSize() );
@@ -430,13 +446,13 @@ TEST ( managedFileSwap, Unit_SwapAllocation )
 {
     unsigned int oneswap = 1024 * 1024 * 16;
     unsigned int totalswap = 16 * oneswap;
-    managedFileSwap swap ( totalswap, "/tmp/rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( totalswap, "rambrainswap-%d-%d", oneswap );
     char firstname[70];
-    snprintf ( firstname, 70, "/tmp/rambrainswap-%d-%d", getpid(), 0 );
+    snprintf ( firstname, 70, "rambrainswap-%d-%d", getpid(), 0 );
 
     for ( int n = 0; n < 16; n++ ) {
         char fname[70];
-        snprintf ( fname, 70, "/tmp/rambrainswap-%d-%d", getpid(), n );
+        snprintf ( fname, 70, "rambrainswap-%d-%d", getpid(), n );
         struct stat mstat;
         stat ( fname, &mstat );
         ASSERT_TRUE ( S_ISREG ( mstat.st_mode ) );
@@ -452,7 +468,7 @@ TEST ( managedFileSwap, Unit_SwapAllocation )
         managedPtr<double> testarr ( 1024 ); //80% RAM full.
         for ( int n = 0; n < 16; n++ ) {
             char fname[70];
-            snprintf ( fname, 70, "/tmp/rambrainswap-%d-%d", getpid(), n );
+            snprintf ( fname, 70, "rambrainswap-%d-%d", getpid(), n );
             struct stat mstat;
             stat ( fname, &mstat );
             ASSERT_TRUE ( S_ISREG ( mstat.st_mode ) );
@@ -466,7 +482,7 @@ TEST ( managedFileSwap, Unit_SwapAllocation )
         ASSERT_EQ ( ( ( unsigned int ) ( ( 1024 * 1024 * 16 ) * swap.swapFileResizeFrac ) ), first.st_size ); // should be 1/16th pageFileSize
         for ( int n = 1; n < 16; n++ ) {
             char fname[70];
-            snprintf ( fname, 70, "/tmp/rambrainswap-%d-%d", getpid(), n );
+            snprintf ( fname, 70, "rambrainswap-%d-%d", getpid(), n );
             struct stat mstat;
             stat ( fname, &mstat );
             ASSERT_TRUE ( S_ISREG ( mstat.st_mode ) );
@@ -480,7 +496,7 @@ TEST ( managedFileSwap, Unit_SwapAllocation )
         ASSERT_EQ ( ( ( unsigned int ) ( ( 1024 * 1024 * 16 ) * swap.swapFileResizeFrac ) ), first.st_size ); //Size should not change.
         for ( int n = 1; n < 16; n++ ) {
             char fname[70];
-            snprintf ( fname, 70, "/tmp/rambrainswap-%d-%d", getpid(), n );
+            snprintf ( fname, 70, "rambrainswap-%d-%d", getpid(), n );
             struct stat mstat;
             stat ( fname, &mstat );
             ASSERT_TRUE ( S_ISREG ( mstat.st_mode ) );
@@ -540,7 +556,7 @@ TEST ( managedFileSwap, Unit_SwapReadAllocatedChunk )
     const unsigned int oneswap = mib;
     const unsigned int dblamount = 10;
     const unsigned int arrsize = dblamount * sizeof ( double );
-    managedFileSwap swap ( oneswap, "/tmp/rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( oneswap, "rambrainswap-%d-%d", oneswap );
     cyclicManagedMemory manager ( &swap, arrsize * 1.5 );
 
     managedPtr<double> ptr1 ( dblamount );
@@ -574,7 +590,7 @@ TEST ( managedFileSwap, Unit_SwapSingleIsland )
     const unsigned int dblamount = oneswap / sizeof ( double );
     const unsigned int smalldblamount = dblamount * .2;
     const unsigned int bigdblamount = dblamount - smalldblamount;
-    managedFileSwap swap ( oneswap, "/tmp/rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( oneswap, "rambrainswap-%d-%d", oneswap );
     cyclicManagedMemory manager ( &swap, oneswap );
     manager.setPreemptiveUnloading ( false ); //Preemptive swapout kills us here.
     ASSERT_EQ ( mib, swap.getSwapSize() );
@@ -618,7 +634,7 @@ TEST ( managedFileSwap, Unit_SwapNextAndSingleIsland )
     const unsigned int dblamount = oneswap / sizeof ( double );
     const unsigned int smalldblamount = dblamount * .1;
     const unsigned int bigdblamount = dblamount - 2 * smalldblamount;
-    managedFileSwap swap ( oneswap, "/tmp/rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( oneswap, "rambrainswap-%d-%d", oneswap );
     cyclicManagedMemory manager ( &swap, oneswap );
     manager.setPreemptiveUnloading ( false ); //Preemptive swapout kills us here.
 
@@ -717,7 +733,7 @@ TEST ( managedFileSwap, Unit_SwapPolicy )
     const unsigned int size = mib;
     const unsigned int swapmem = 1 * mib;
 
-    managedFileSwap swap ( swapmem, "/tmp/rambrainswap1-%d-%d" );
+    managedFileSwap swap ( swapmem, "rambrainswap1-%d-%d" );
     EXPECT_EQ ( swapPolicy::fixed, swap.getSwapPolicy() );
     EXPECT_EQ ( mib, swap.getFreeSwap() );
     cyclicManagedMemory manager ( &swap, size );
@@ -727,7 +743,7 @@ TEST ( managedFileSwap, Unit_SwapPolicy )
     EXPECT_THROW (
         managedPtr<char> d3 ( mib ), memoryException );
 
-    managedFileSwap swap2 ( swapmem, "/tmp/rambrainswap2-%d-%d" );
+    managedFileSwap swap2 ( swapmem, "rambrainswap2-%d-%d" );
     cyclicManagedMemory manager2 ( &swap2, size );
     swap2.setSwapPolicy ( swapPolicy::autoextendable );
 
