@@ -127,7 +127,7 @@ configuration::configuration() : memoryManager ( "memoryManager", "cyclicManaged
     swapfiles ( "swapfiles", "rambrainswap-%d-%d", regexMatcher::swapfilename ),
     memory ( "memory", 0, regexMatcher::floating | regexMatcher::units ),
     swapMemory ( "swapMemory", 0, regexMatcher::floating | regexMatcher::units ),
-    enableDMA ( "enableDMA", false, regexMatcher::integer | regexMatcher::boolean ),
+    enableDMA ( "enableDMA", true, regexMatcher::integer | regexMatcher::boolean ),
     policy ( "policy", swapPolicy::autoextendable, regexMatcher::text )
 {
     // Fill configOptions

@@ -54,6 +54,16 @@
 #include <process.h>
 #include <atomic>
 
+void dbgprint(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char cad[1024]; vsprintf(cad, fmt, args);  OutputDebugString(cad);
+    va_end(args);
+}
+
+#define printf(...) dbgprint(__VA_ARGS__)
+
+
 //std::atomic<uint64_t> io_key = 0;
 std::mutex io_mutex;
 std::list<struct rambrain::iocb*> io_queue;
@@ -83,7 +93,8 @@ inline void io_prep_pread(struct rambrain::iocb* iocb, file_descriptor_t fd, voi
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
     iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
-    iocb->oOverlap.Pointer = (PVOID)offset;
+    iocb->oOverlap.OffsetHigh = offset >> 32 & 0xFFFFFFFF;
+    iocb->oOverlap.Offset = offset & 0xFFFFFFFF;
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -96,7 +107,8 @@ inline void io_prep_pwrite(struct rambrain::iocb* iocb, file_descriptor_t fd, vo
 {
     memset(&iocb->oOverlap, 0, sizeof(OVERLAPPED));
     iocb->oOverlap.hEvent = CreateEvent(NULL, FALSE, TRUE, NULL);
-    iocb->oOverlap.Pointer = (PVOID)offset;
+    iocb->oOverlap.OffsetHigh = offset >> 32 & 0xFFFFFFFF;
+    iocb->oOverlap.Offset = offset & 0xFFFFFFFF;
     iocb->fd = fd;
     iocb->buf = buf;
     iocb->count = count;
@@ -420,10 +432,12 @@ int ftruncate(HANDLE hndl, long long int size_to_reserve)
     if (!SetFilePointerEx(hndl, minus_one, NULL, FILE_END))
         return -1;
     //char  initializer_buf[1] = { 1 };
+    LARGE_INTEGER new_pos_last_page = { 0 };
+    new_pos.QuadPart = size_to_reserve - pageSize;
     DWORD written = 0;
     OVERLAPPED ov = { 0 };
-    //ov.OffsetHigh = minus_one.HighPart;
-    //ov.Offset = minus_one.LowPart;
+    ov.OffsetHigh = new_pos.HighPart;
+    ov.Offset = new_pos.LowPart;
     unsigned char* initializer_buf = (unsigned char*)_aligned_malloc(pageSize, pageSize);
     ZeroMemory(initializer_buf, pageSize);
 

@@ -497,7 +497,7 @@ bool cyclicManagedMemory::swapIn ( managedMemoryChunk &chunk )
             cur = cur->prev;
         } while ( cur != oldBorder );
 
-        managedMemoryChunk** chunks = (managedMemoryChunk**)_alloca(sizeof(managedMemoryChunk*) * numberSelected);//[numberSelected];
+        managedMemoryChunk** chunks = (managedMemoryChunk**)malloc(sizeof(managedMemoryChunk*) * numberSelected);//[numberSelected];
         unsigned int n = 0;
         global_bytesize selectedReadinVol2 = 0;
         preemtivelySelected = 0;
@@ -523,10 +523,12 @@ bool cyclicManagedMemory::swapIn ( managedMemoryChunk &chunk )
         preemptiveSinceLast = numberSelected - 1;
 
         global_bytesize swappedInBytes = swap->swapIn ( chunks, numberSelected );
+
         if ( (  swappedInBytes != selectedReadinVol ) ) {
             //Check if we at least have swapped in enough:
             VERBOSEPRINT ( "exiting with non complete job" );
             if ( ! ( chunk.status & MEM_ALLOCATED || chunk.status == MEM_SWAPIN ) ) {
+                free(chunks);
                 return Throw ( memoryException ( "managedSwap failed to swap in :-(" ) );
             }
 
@@ -596,6 +598,7 @@ bool cyclicManagedMemory::swapIn ( managedMemoryChunk &chunk )
         n_swap_in += 1;
 #endif
         VERBOSEPRINT ( "swapInBeforeReturn" );
+        free(chunks);
         return true;
 
     } else {

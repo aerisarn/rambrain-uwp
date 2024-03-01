@@ -316,7 +316,7 @@ TEST ( managedFileSwap, Integration_RandomAccess )
     tester test;
     test.setSeed ( );
 
-    managedFileSwap swap ( totalswap, "rambrainswap-%d-%d", oneswap );
+    managedFileSwap swap ( totalswap, "rambrainswap-test-%d-%d", oneswap);
     cyclicManagedMemory manager ( &swap, oneswap );
 
     /*ASSERT_EQ ( 0, manager.getSwappedMemory() ); //Deallocated all pointers
@@ -328,30 +328,29 @@ TEST ( managedFileSwap, Integration_RandomAccess )
     global_bytesize obj_size = 102400 * sizeof ( double );
     global_bytesize obj_no = totalswap / obj_size * .9;
 
-
     managedPtr<double> **objmask = ( managedPtr<double> ** ) malloc ( sizeof ( managedPtr<double> * ) *obj_no );
     for ( unsigned int n = 0; n < obj_no; ++n ) {
         objmask[n] = NULL;
     }
-    for ( unsigned int n = 0; n < 10 * obj_no; ++n ) {
+    for ( unsigned int n = 0; n < 10 *  obj_no; ++n ) {
         global_bytesize no = test.random ( obj_no - 1 );
 
         if ( objmask[no] == NULL ) {
             ASSERT_TRUE ( manager.checkCycle() );
-            objmask[no] = new managedPtr<double> ( 102400 );
+            objmask[no] = new managedPtr<double> (102400);
             {
                 adhereTo<double> objoloc ( *objmask[no] );
                 double *darr =  objoloc;
-                darr[0] = no;
+                darr[0] = no + 1;
             }
 
         } else {
             {
                 adhereTo<double> objoloc ( *objmask[no] );
                 double *darr =  objoloc;
-                if (darr[0] == 0.)
+                if (darr[0] != no + 1)
                     int debug = 1;
-                ASSERT_EQ ( no, darr[0] );
+                ASSERT_EQ ( no + 1, darr[0] );
             }
             delete objmask[no];
             objmask[no] = NULL;
@@ -398,11 +397,11 @@ TEST ( managedFileSwap, Integration_RandomAccessVariousSize )
     }
     for ( unsigned int n = 0; n < 10 * obj_no; ++n ) {
 
-        global_bytesize no = test.random ( obj_no );
+        global_bytesize no = test.random ( obj_no - 1 );
         ASSERT_TRUE ( manager.checkCycle() );
         if ( objmask[no] == NULL ) {
 
-            unsigned int varsize = ( test.random() + 0.5 ) * 102400;
+            unsigned int varsize = ( test.random() ) * 102400;
             if ( ( varsize + 102400 * 2. ) *sizeof ( double ) > swap.getFreeSwap() ) {
                 continue;
             }
