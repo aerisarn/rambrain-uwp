@@ -57,7 +57,7 @@
 void dbgprint(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    char cad[1024]; vsprintf(cad, fmt, args);  OutputDebugString(cad);
+    char cad[1024]; vsprintf(cad, fmt, args);  OutputDebugStringA(cad);
     va_end(args);
 }
 
@@ -356,7 +356,7 @@ HANDLE WINAPI CreateFileW(LPCWSTR lpFileName,
     DWORD dwFlagsAndAttributes,
     HANDLE hTemplateFile)
 {
-    CREATEFILE2_EXTENDED_PARAMETERS createExParams;
+    CREATEFILE2_EXTENDED_PARAMETERS createExParams = {0};
     createExParams.dwSize = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
     createExParams.dwFileAttributes = dwFlagsAndAttributes & 0xFFFF;
     createExParams.dwFileFlags = dwFlagsAndAttributes & 0xFFF00000;
@@ -386,11 +386,16 @@ HANDLE open(const char* szFileName, int mode, int permissions)
 
     HANDLE hFile = CreateFileW(wsTmp.c_str(),		// Name of the file
         (GENERIC_READ | GENERIC_WRITE),	// Open for writing
-        (FILE_SHARE_READ | FILE_SHARE_WRITE),								// Do not share
+        0,								// Do not share
         NULL,							// Default security
         CREATE_ALWAYS,					// Overwrite existing
         flags,
         NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        int lasteerror = GetLastError();
+        printf("Error creating file: %d", lasteerror);
+    }
     return hFile;
 }
 

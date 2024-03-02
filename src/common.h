@@ -23,6 +23,8 @@
 #include <malloc.h>
 #include <inttypes.h>
 
+#include "export.h"
+
 namespace rambrain
 {
 

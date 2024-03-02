@@ -32,7 +32,7 @@ namespace rambrain
 /** @brief Class that serves as a backend to managedMemory to actual write/read managedMemoryChunks to/from hard disk or other non random access memory
  * @note when trying to write your own version, consider studying managedFileSwap as a reference implementation
  **/
-class managedSwap
+class RAMBRAINAPI managedSwap
 {
 public:
     managedSwap ( global_bytesize size );

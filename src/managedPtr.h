@@ -487,7 +487,7 @@ private:
  * if called with locksByUser set to true, the user has to unlock the mutex manually calling unlock.
 **/
 
-class rambrainGlobalCriticalSectionControl
+class RAMBRAINAPI rambrainGlobalCriticalSectionControl
 {
 public:
     rambrainGlobalCriticalSectionControl ( bool locksByUser = false ) : locksByUser ( locksByUser ) {

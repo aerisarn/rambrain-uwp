@@ -51,7 +51,7 @@ struct backlog_entry {
 
 
 ///@brief scheduler working with a double linked cycle. Details see paper.
-class cyclicManagedMemory : public managedMemory
+class RAMBRAINAPI cyclicManagedMemory : public managedMemory
 {
 public:
     cyclicManagedMemory ( rambrain::managedSwap *swap, rambrain::global_bytesize size );

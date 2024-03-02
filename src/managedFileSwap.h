@@ -119,7 +119,7 @@ union glob_off_union {
  * pagefiles are nearly full. In this case we take fragments of free space and use these to break up the
  * consecutive memory of a chunk into parts, tracked by pageChunks.
  * */
-class pageFileLocation
+class RAMBRAINAPI pageFileLocation
 {
 public:
     pageFileLocation ( unsigned int file, global_bytesize offset, global_bytesize size, pageChunkStatus status = PAGE_FREE ) :
@@ -143,7 +143,7 @@ class managedFileSwap;
  *  @note we also support DMA, however this is not recommended as kernel caching&buffering will be circumvent. For our use case this turns out to slow down things more and we do not make best use of system resources.
  *  @note all public functions of managedFileSwap need to be called holding stateChangeMutex
  **/
-class managedFileSwap : public managedSwap
+class RAMBRAINAPI managedFileSwap : public managedSwap
 {
 public:
 

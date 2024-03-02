@@ -122,7 +122,7 @@ ULARGE_INTEGER getDiskFreeSpace()
 #endif
 
 configuration::configuration() : memoryManager ( "memoryManager", "cyclicManagedMemory", regexMatcher::text ),
-    swap ( "swap", "managedFileSwap", regexMatcher::text ),
+    swap ( "swap", "managedDummySwap", regexMatcher::text ),
 /** First %d will be replaced by the process id, the second one will be replaced by the swapfile id */
     swapfiles ( "swapfiles", "rambrainswap-%d-%d", regexMatcher::swapfilename ),
     memory ( "memory", 0, regexMatcher::floating | regexMatcher::units ),

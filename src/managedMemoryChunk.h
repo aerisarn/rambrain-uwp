@@ -51,7 +51,7 @@ typedef uint64_t memoryAtime;
  * @warning There may be changes to any objects status when calling waiting functions in managedMemory or managedSwap.
  * Thus the user has to check the status of the object again having called such functions or having freshly acquired the lock
  * **/
-class managedMemoryChunk
+class RAMBRAINAPI managedMemoryChunk
 {
 public:
 #ifdef PARENTAL_CONTROL

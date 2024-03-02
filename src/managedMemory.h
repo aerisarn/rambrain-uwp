@@ -65,7 +65,7 @@ class managedPtr;
  *
  * @warning Only the most recent allocated memoryManager will be used by adhereTo / managedPtr classes
  */
-class managedMemory
+class RAMBRAINAPI managedMemory
 {
 public:
     /**

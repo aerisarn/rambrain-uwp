@@ -28,7 +28,7 @@ namespace rambrain
 /** @brief A dummy swap that just copies swapped out chunks to a different location in ram
  *  @note there is no productive use of this class, it simly serves testing purpuses for the managedMemory derivated classes
  **/
-class managedDummySwap : public managedSwap
+class RAMBRAINAPI managedDummySwap : public managedSwap
 {
 public:
     managedDummySwap ( rambrain::global_bytesize size );

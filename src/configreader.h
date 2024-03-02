@@ -54,7 +54,7 @@ enum class swapPolicy {
 /**
  * @brief Base class for config lines
  */
-class configLineBase
+class RAMBRAINAPI configLineBase
 {
 
 public:
@@ -84,7 +84,7 @@ public:
  * @brief Class for config key value pairs represented by a line in a config file
  */
 template<typename T>
-class configLine : public configLineBase
+class RAMBRAINAPI configLine : public configLineBase
 {
 public:
     /**
@@ -160,7 +160,7 @@ struct configuration {
  * Also all different files are taken into account to supply missing options
  * @note Comments can be inserted with leading hash
  */
-class configReader
+class RAMBRAINAPI configReader
 {
 
 public:
