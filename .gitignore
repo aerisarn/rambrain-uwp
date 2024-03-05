@@ -15,3 +15,6 @@ CMakeLists.txt.user
 rambrain_uwp/x64
 *.filters
 /build
+/native
+/uwp
+/vcpkg

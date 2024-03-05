@@ -5,12 +5,16 @@ option(ENABLE_VCPKG "Enable the vcpkg package manager" ON)
 if (ENABLE_VCPKG)
 	message("Setting Dynamic C/CXX linking")
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	message("Using vcpkg on WindowsStore")
-	# Force static MD triplet on WindowsStore
-	set(VCPKG_TARGET_TRIPLET "x64-uwp-static-md" CACHE STRING "" FORCE)
+	message("Using vcpkg")
+	if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+		# Force static MD triplet on WindowsStore
+		set(VCPKG_TARGET_TRIPLET "x64-uwp-static-md" CACHE STRING "" FORCE)
+	else()
+		set(VCPKG_TARGET_TRIPLET "x64-windows-static-md" CACHE STRING "" FORCE)
+	endif()
+	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/../vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
+	message("VCPKG_ROOT " ${VCPKG_ROOT})
 	include(cmake/automate-vcpkg.cmake)
-	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
-	message("VCPKG_ROOT " ${CMAKE_CURRENT_BINARY_DIR}/vcpkg)
 	vcpkg_bootstrap()
 	# Set this so that all the various find_package() calls don't need an explicit
 	# CONFIG option
@@ -139,7 +143,7 @@ if(BUILD_TESTS)
     add_subdirectory (tests)
 endif()
 
-if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
 	add_custom_target(rambrain_doc doxygen ${CMAKE_SOURCE_DIR}/doc/doxyfile ${CMAKE_SOURCE_DIR} COMMENT "Generating API documentation with Doxygen" VERBATIM)
 endif()
 
