@@ -91,7 +91,7 @@ __forceinline bool __sync_bool_compare_and_swap(
     typename __sync_win32_enable_if<true, _Tp>::type __new_val)
 {
     return _InterlockedCompareExchange8((char*)(__ptr), (char)(__new_val),
-        (char)(__old_val)) != *__ptr; //TODO
+        (char)(__old_val)) != (char)*__ptr; //TODO
 }
 
 template <class _Tp>

@@ -239,6 +239,9 @@ protected:
     friend class managedSwap;
     friend class managedFileSwap;
     friend class managedDummySwap;
+
+    friend class genericManagedPtr;
+
     //Test classes
 #ifdef BUILD_TESTS
     friend class ::managedFileSwap_Unit_ManualSwapping_Test;
