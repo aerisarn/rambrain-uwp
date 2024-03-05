@@ -3,26 +3,27 @@ cmake_minimum_required(VERSION 3.21.1)
 option(ENABLE_VCPKG "Enable the vcpkg package manager" ON)
 
 if (ENABLE_VCPKG)
-	if(UNIX AND NOT APPLE)
-		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports_linux")
-	elseif(APPLE)
-		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports_mac")
-	else()
-		set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/../Cemu/dependencies/vcpkg_overlay_ports")
-	endif()
-	set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../Cemu/dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake"
-		CACHE STRING "Vcpkg toolchain file")
+	message("Setting Dynamic C/CXX linking")
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	message("Using vcpkg on WindowsStore")
+	# Force static MD triplet on WindowsStore
+	set(VCPKG_TARGET_TRIPLET "x64-uwp-static-md" CACHE STRING "" FORCE)
+	include(cmake/automate-vcpkg.cmake)
+	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
+	message("VCPKG_ROOT " ${CMAKE_CURRENT_BINARY_DIR}/vcpkg)
+	vcpkg_bootstrap()
 	# Set this so that all the various find_package() calls don't need an explicit
 	# CONFIG option
 	set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
-	if (WIN32)
-		set(VCPKG_TARGET_TRIPLET "x64-uwp-static-md" CACHE STRING "")
-	endif()
+	set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_BINARY_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
+	# Set this so that all the various find_package() calls don't need an explicit
+	# CONFIG option
+	set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 endif()
 
 project (rambrain)
 
-option (BUILD_TESTS "Build tests" ON)
+option (BUILD_TESTS "Build tests" OFF)
 option (PTEST_CHECKS "Include correctness checks in performance tests" OFF)
 option (SWAPSTATS "Output swap stats on signal SIGUSR1" ON)
 option (LOGSTATS "Log stats instead of outputting them to stdout" OFF)
@@ -41,6 +42,10 @@ else()
         message(WARNING "Disabling build of some tests since OpenMP is missing")
         add_definitions(-DOpenMP_NOT_FOUND)
     endif()
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 if(SWAPSTATS)
@@ -134,6 +139,8 @@ if(BUILD_TESTS)
     add_subdirectory (tests)
 endif()
 
-add_custom_target(rambrain_doc doxygen ${CMAKE_SOURCE_DIR}/doc/doxyfile ${CMAKE_SOURCE_DIR} COMMENT "Generating API documentation with Doxygen" VERBATIM)
+if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+	add_custom_target(rambrain_doc doxygen ${CMAKE_SOURCE_DIR}/doc/doxyfile ${CMAKE_SOURCE_DIR} COMMENT "Generating API documentation with Doxygen" VERBATIM)
+endif()
 
 execute_process(COMMAND ./scripts/gengit.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
