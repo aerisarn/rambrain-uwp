@@ -15,7 +15,7 @@ if (ENABLE_VCPKG)
 	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/../vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
 	set(VCPKG_INSTALLED_DIR  ${CMAKE_CURRENT_BINARY_DIR}/../vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
 	message("VCPKG_ROOT " ${VCPKG_ROOT})
-	message("VCPKG_ROOT " ${VCPKG_INSTALLED_DIR})
+	message("VCPKG_INSTALLED_DIR " ${VCPKG_INSTALLED_DIR})
 	include(cmake/automate-vcpkg.cmake)
 	vcpkg_bootstrap()
 	# Set this so that all the various find_package() calls don't need an explicit

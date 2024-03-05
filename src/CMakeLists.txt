@@ -5,7 +5,7 @@ file (GLOB SOURCES
 add_library (rambrain SHARED ${SOURCES})
 #add_library (rambrain_static STATIC ${SOURCES})
 
-set_target_properties(rambrain_static PROPERTIES OUTPUT_NAME rambrain)
+# set_target_properties(rambrain_static PROPERTIES OUTPUT_NAME rambrain)
 
 if(LOGSTATS)
     target_link_libraries(rambrain -lrt)
