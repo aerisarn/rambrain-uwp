@@ -54,6 +54,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
+add_definitions(-DUSERAMBRAINLIBRARY)
+add_definitions(-DRAMBRAINLIBRARY_EXPORTS)
+
 if(SWAPSTATS)
     add_definitions(-DSWAPSTATS)
 endif()
