@@ -12,14 +12,16 @@ if (ENABLE_VCPKG)
 	else()
 		set(VCPKG_TARGET_TRIPLET "x64-windows-static-md" CACHE STRING "" FORCE)
 	endif()
-	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
+	set(VCPKG_ROOT ${CMAKE_CURRENT_BINARY_DIR}/../vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
+	set(VCPKG_INSTALLED_DIR  ${CMAKE_CURRENT_BINARY_DIR}/../vcpkg CACHE STRING "vcpkg configuration directory to use" FORCE)
 	message("VCPKG_ROOT " ${VCPKG_ROOT})
+	message("VCPKG_ROOT " ${VCPKG_INSTALLED_DIR})
 	include(cmake/automate-vcpkg.cmake)
 	vcpkg_bootstrap()
 	# Set this so that all the various find_package() calls don't need an explicit
 	# CONFIG option
 	set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
-	set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_BINARY_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
+	set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_BINARY_DIR}/vcpkg/scripts/buildsystems/../vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
 	# Set this so that all the various find_package() calls don't need an explicit
 	# CONFIG option
 	set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)

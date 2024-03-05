@@ -3,21 +3,21 @@ file (GLOB SOURCES
 )
 
 add_library (rambrain SHARED ${SOURCES})
-add_library (rambrain_static STATIC ${SOURCES})
+#add_library (rambrain_static STATIC ${SOURCES})
 
 set_target_properties(rambrain_static PROPERTIES OUTPUT_NAME rambrain)
 
 if(LOGSTATS)
     target_link_libraries(rambrain -lrt)
-    target_link_libraries(rambrain_static -lrt)
+#    target_link_libraries(rambrain_static -lrt)
 endif()
 
 if (WIN32)
     target_link_libraries(rambrain PUBLIC PThreads4W::PThreads4W)
-    target_link_libraries(rambrain_static PUBLIC PThreads4W::PThreads4W)
+#    target_link_libraries(rambrain_static PUBLIC PThreads4W::PThreads4W)
 else()
     target_link_libraries(rambrain ${AIO_LIBRARIES} pthread)
-    target_link_libraries(rambrain_static ${AIO_LIBRARIES} pthread)
+#    target_link_libraries(rambrain_static ${AIO_LIBRARIES} pthread)
 endif()
 
 
