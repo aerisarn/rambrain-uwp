@@ -38,11 +38,13 @@ namespace rambrain {
 rambrain_ptr rambrain_allocate(size_t s_size)
 {
     rambrain_ptr result = rambrain_null_ptr;
-    managedMemoryChunk* chunk = AllocatorAccessor::mmalloc(s_size);
+    managedMemoryChunk* chunk = AllocatorAccessor::mmalloc(s_size + sizeof(rambrain_ptr));
     if (AllocatorAccessor::setUse(chunk, true))
     {
-        result.canary = CANARY;
-        result.chunk = chunk;
+        rambrain_ptr* ptr = (rambrain_ptr*)chunk->locPtr;
+        ptr->canary = CANARY;
+        ptr->chunk = chunk;
+        return *ptr;
     }
     return result;
 }
@@ -66,8 +68,17 @@ void rambrain_dereference(rambrain_ptr ptr)
     AllocatorAccessor::unsetUse(static_cast<managedMemoryChunk*>(ptr.chunk), true);
 }
 
-rambrain_ptr rambrain_adopt(void* chunk)
+rambrain_ptr rambrain_ptr_from_data(void* chunk)
 {
-    return { CANARY, chunk };
+    rambrain_ptr* ptr = (rambrain_ptr*)((char*)chunk - sizeof(rambrain_ptr));
+    assert(ptr->canary == CANARY);
+    return *ptr;
+}
+
+void* rambrain_ptr_to_data(rambrain_ptr ptr)
+{
+    rambrain_ptr* ptr_on_chunk = (rambrain_ptr*)ptr.chunk;
+    assert(ptr_on_chunk->canary == CANARY);
+    return (char*)ptr_on_chunk + sizeof(rambrain_ptr);
 }
 

@@ -27,7 +27,8 @@ RAMBRAINAPI rambrain_ptr rambrain_allocate(size_t s_size);
 RAMBRAINAPI void		 rambrain_free(rambrain_ptr ptr);
 RAMBRAINAPI void*		 rambrain_reference(rambrain_ptr ptr);
 RAMBRAINAPI void		 rambrain_dereference(rambrain_ptr ptr);
-RAMBRAINAPI rambrain_ptr rambrain_adopt(void* chunk);
+RAMBRAINAPI rambrain_ptr rambrain_ptr_from_data(void* chunk);
+RAMBRAINAPI void*		 rambrain_ptr_to_data(rambrain_ptr ptr);
 
 #ifdef _cplusplus
 }
