@@ -52,6 +52,8 @@ class managedDummySwap;
 class managedSwap;
 template<class T, int dim>
 class managedPtr;
+
+class AllocatorAccessor;
 /**
  * @brief Backend class to handle raw memory and interaction/storage with managedSwap.
  *
@@ -241,6 +243,8 @@ protected:
     friend class managedDummySwap;
 
     friend class genericManagedPtr;
+
+    friend class AllocatorAccessor;
 
     //Test classes
 #ifdef BUILD_TESTS

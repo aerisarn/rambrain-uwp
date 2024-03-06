@@ -6,17 +6,24 @@
 extern "C" {
 #endif
 
-#pragma pack(push)
-#pragma pack(16)
-struct rambrain_ptr
-{
-	void* rambrain_descriptor;
-	bool  rambrain_tracker;
-};
-static_assert (sizeof(rambrain_ptr) == 16, "rambrain_ptr size is not correct");
-#pragma pack(pop)
+#if defined(__LP64__) || defined(_WIN64)
+#define HEADER_ALIGN 16
+#else
+#define HEADER_ALIGN 8
+#endif
 
-RAMBRAINAPI rambrain_ptr rambrain_allocate(size_t s_size, unsigned int n_elem);
+typedef struct rambrain_ptr
+{
+	alignas(HEADER_ALIGN)
+	
+	size_t	s_size;
+	void*	chunk;
+} rambrain_ptr;
+static_assert (sizeof(rambrain_ptr) == 16, "rambrain_ptr size is not correct");
+
+extern rambrain_ptr rambrain_null_ptr;
+
+RAMBRAINAPI rambrain_ptr rambrain_allocate(size_t s_size);
 RAMBRAINAPI void		 rambrain_free(rambrain_ptr ptr);
 RAMBRAINAPI void*		 rambrain_reference(rambrain_ptr ptr);
 RAMBRAINAPI void		 rambrain_dereference(rambrain_ptr ptr);
