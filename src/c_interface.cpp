@@ -1,6 +1,9 @@
 #include "c_interface.h"
 
-#include "genericManagedPtr.h"
+#include <assert.h>
+#include "managedMemory.h"
+
+#define CANARY 0xED0A8D0
 
 using namespace rambrain;
 
@@ -38,38 +41,33 @@ rambrain_ptr rambrain_allocate(size_t s_size)
     managedMemoryChunk* chunk = AllocatorAccessor::mmalloc(s_size);
     if (AllocatorAccessor::setUse(chunk, true))
     {
+        result.canary = CANARY;
         result.chunk = chunk;
-        result.s_size = s_size;
     }
     return result;
 }
 
 void rambrain_free(rambrain_ptr ptr)
 {
-    if (ptr.s_size > 0) {
-        AllocatorAccessor::mfree(static_cast<managedMemoryChunk*>(ptr.chunk)->id);
-    }
+    assert(ptr.canary == CANARY);
+    AllocatorAccessor::mfree(static_cast<managedMemoryChunk*>(ptr.chunk)->id);
 }
 
 void* rambrain_reference(rambrain_ptr ptr)
 {
-    if (ptr.s_size == 0) {
-        return NULL;
-    }
-    if (ptr.chunk == NULL) {
-        return NULL;
-    }
+    assert(ptr.canary == CANARY);
     AllocatorAccessor::setUse(static_cast<managedMemoryChunk*>(ptr.chunk), true);
     return static_cast<managedMemoryChunk*>(ptr.chunk)->locPtr;
 }
 
 void rambrain_dereference(rambrain_ptr ptr)
 {
-    if (ptr.s_size == 0) {
-        return;
-    }
-    if (ptr.chunk == NULL) {
-        return;
-    }
+    assert(ptr.canary == CANARY);
     AllocatorAccessor::unsetUse(static_cast<managedMemoryChunk*>(ptr.chunk), true);
 }
+
+rambrain_ptr rambrain_adopt(void* chunk)
+{
+    return { CANARY, chunk };
+}
+
