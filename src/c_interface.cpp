@@ -62,22 +62,25 @@ void* rambrain_reference(rambrain_ptr ptr)
     return static_cast<managedMemoryChunk*>(ptr.chunk)->locPtr;
 }
 
-void rambrain_dereference(rambrain_ptr ptr)
+rambrain_ptr rambrain_dereference(rambrain_ptr ptr)
 {
     assert(ptr.canary == CANARY);
     AllocatorAccessor::unsetUse(static_cast<managedMemoryChunk*>(ptr.chunk), true);
+    return ptr;
 }
 
-rambrain_ptr rambrain_ptr_from_data(void* chunk)
+rambrain_ptr rambrain_ptr_from_data(void* data) //chunk must be allocated on page
 {
-    rambrain_ptr* ptr = (rambrain_ptr*)((char*)chunk - sizeof(rambrain_ptr));
+    rambrain_ptr* ptr = (rambrain_ptr*)((char*)data - sizeof(rambrain_ptr));
     assert(ptr->canary == CANARY);
     return *ptr;
 }
 
 void* rambrain_ptr_to_data(rambrain_ptr ptr)
 {
-    rambrain_ptr* ptr_on_chunk = (rambrain_ptr*)ptr.chunk;
+    assert(ptr.canary == CANARY);
+    managedMemoryChunk* chunk = (managedMemoryChunk *)(ptr.chunk);
+    rambrain_ptr* ptr_on_chunk = (rambrain_ptr*)chunk->locPtr;
     assert(ptr_on_chunk->canary == CANARY);
     return (char*)ptr_on_chunk + sizeof(rambrain_ptr);
 }
